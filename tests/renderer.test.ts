@@ -42,10 +42,10 @@ describe("reader contracts", () => {
       }),
     ).toEqual({ documentId: "123", title: "Title", pageCount: 2, width: 600, height: 800 });
   });
-  it("uses the document ID when the reader exposes only a generic site title", () => {
+  it("clears a generic site title so output naming can use the document ID", () => {
     expect(
       validateDocumentState("123", { title: "Scribd", pageCount: 1, sizes: [[600, 800]] }).title,
-    ).toBe("123");
+    ).toBe("");
   });
   it.each([
     { missing: ["window.docManager"] },
@@ -70,7 +70,7 @@ describe("reader contracts", () => {
       { kind: "page", url: "html.scribdassets.com/pages/1.jsonp", detail: "HTTP 403" },
     ]);
     expect(monitor.classify("https://fonts.scribdassets.com/a.woff2", "font")).toBe("font");
-    expect(monitor.classify("https://html.scribdassets.com/pages/images/a.jpg", "image")).toBe(
+    expect(monitor.classify("https://html.scribdassets.com/abc/images/a.jpg", "image")).toBe(
       "image",
     );
     expect(

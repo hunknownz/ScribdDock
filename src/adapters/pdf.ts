@@ -1,6 +1,15 @@
 import { readFile, rename, stat, writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream, PDFStream } from "pdf-lib";
+import {
+  decodePDFRawStream,
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFNumber,
+  PDFRawStream,
+  PDFStream,
+} from "pdf-lib";
 import { DownloaderError, errorMessage } from "../errors.js";
 
 export interface PrintedLayout {
@@ -34,7 +43,13 @@ export async function waitForPdf(path: string, timeoutMs = 60_000, pollMs = 250)
       previousSize = size;
       if (stableSamples >= 2) {
         const bytes = await readFile(path);
-        if (bytes.subarray(-1024).includes(Buffer.from("%%EOF"))) return;
+        if (
+          Buffer.from(bytes.subarray(-1024))
+            .toString("latin1")
+            .replace(/[\t\n\v\f\r ]+$/g, "")
+            .endsWith("%%EOF")
+        )
+          return;
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -49,6 +64,22 @@ const quartzClip = new RegExp(
   `^(?:\\s*(?:q|Q)\\b)*\\s*${number}\\s+${number}\\s+${number}\\s+${number}\\s+re\\s+W\\*?\\s+n\\b`,
 );
 
+function translateAnnotationPoints(annotation: PDFDict, x: number, y: number): void {
+  const translate = (points: PDFArray): void => {
+    if (points.size() % 2 !== 0) throw new DownloaderError("PDF: 注释坐标无效");
+    for (let i = 0; i < points.size(); i++) {
+      const value = points.lookup(i, PDFNumber).asNumber();
+      points.set(i, PDFNumber.of(value - (i % 2 === 0 ? x : y)));
+    }
+  };
+  for (const key of ["Rect", "QuadPoints", "Vertices", "L", "CL"]) {
+    const points = annotation.lookupMaybe(PDFName.of(key), PDFArray);
+    if (points) translate(points);
+  }
+  const ink = annotation.lookupMaybe(PDFName.of("InkList"), PDFArray);
+  if (ink) for (let i = 0; i < ink.size(); i++) translate(ink.lookup(i, PDFArray));
+}
+
 export async function normalizePrintedPdf(
   path: string,
   layout: PrintedLayout,
@@ -60,10 +91,12 @@ export async function normalizePrintedPdf(
     throw new DownloaderError("PDF: 打印布局尺寸无效");
   const document = await PDFDocument.load(await readFile(path), { updateMetadata: false });
   const quartz = document.getProducer()?.includes("Quartz PDFContext");
+  let paperScale: number | undefined;
   for (const [index, page] of document.getPages().entries()) {
     if (quartz) {
       // Quartz can emit the correct CSS page clipping rectangle while retaining a Letter
-      // MediaBox. Recover only the leading page clip, and require it to match the DOM layout.
+      // MediaBox. Recover only the leading page clip. Firefox may uniformly scale the
+      // entire paper; require the DOM aspect ratio and one common scale across all pages.
       // This keeps native text, fonts and vectors instead of replacing pages with screenshots.
       const stream = contentStreams(page.node.Contents())[0];
       const match = stream && quartzClip.exec(decodedContents(stream).slice(0, 4096));
@@ -74,11 +107,30 @@ export async function normalizePrintedPdf(
         number,
         number,
       ];
-      if (Math.abs(clipWidth - width) > 0.5 || Math.abs(clipHeight - height) > 0.5)
-        throw new DownloaderError(`PDF: 第 ${index + 1} 页打印边界与阅读器布局不匹配`);
+      const ratio = clipWidth / width;
+      if (
+        ![x, y, ratio].every(Number.isFinite) ||
+        ratio < 0.5 ||
+        ratio > 2 ||
+        Math.abs(clipHeight - height * ratio) > 0.5
+      )
+        throw new DownloaderError(
+          `PDF: 第 ${index + 1} 页打印边界与阅读器布局不匹配 ` +
+            `(${clipWidth}x${clipHeight}pt; expected ${width}x${height}pt)`,
+        );
+      if (paperScale !== undefined && Math.abs(paperScale - ratio) > 0.001)
+        throw new DownloaderError(`PDF: 第 ${index + 1} 页打印缩放与其他页不一致`);
+      paperScale = ratio;
+      const scale = 1 / ratio;
       page.translateContent(-x, -y);
-      page.setMediaBox(0, 0, clipWidth, clipHeight);
-      page.setCropBox(0, 0, clipWidth, clipHeight);
+      page.scaleContent(scale, scale);
+      const annotations = page.node.Annots();
+      if (annotations)
+        for (let i = 0; i < annotations.size(); i++)
+          translateAnnotationPoints(annotations.lookup(i, PDFDict), x, y);
+      page.scaleAnnotations(scale, scale);
+      page.setMediaBox(0, 0, width, height);
+      page.setCropBox(0, 0, width, height);
     } else if (
       Math.abs(page.getWidth() - width) > 0.5 ||
       Math.abs(page.getHeight() - height) > 0.5

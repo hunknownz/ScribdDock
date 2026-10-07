@@ -1,9 +1,15 @@
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import type { Page } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { BrowserSession } from "../src/adapters/browser.js";
 import { CamoufoxProvider } from "../src/adapters/camoufox.js";
+import { normalizePrintedPdf, validatePdf, waitForPdf } from "../src/adapters/pdf.js";
 import { evaluateMainWorld } from "../src/adapters/scribd/evaluate.js";
 import { prepareExportDom } from "../src/adapters/scribd/renderer.js";
+import { PRINT_DOCUMENT_SCRIPT } from "../src/adapters/scribd/scripts.js";
 
 describe.skipIf(process.env.SCRIBD_BROWSER !== "1")("local Camoufox integration", () => {
   let session: BrowserSession;
@@ -72,3 +78,55 @@ describe.skipIf(process.env.SCRIBD_BROWSER !== "1")("local Camoufox integration"
     ).rejects.toThrow("exceeds visible box");
   });
 });
+
+it.skipIf(process.env.SCRIBD_BROWSER !== "1")(
+  "prints successive paper sizes with native fonts and correct page boxes",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "scribddock-native-print-"));
+    try {
+      for (const [width, height] of [
+        [750, 1000],
+        [840, 600],
+      ] as const) {
+        const output = join(directory, `${width}-${height}.pdf`);
+        const session = await new CamoufoxProvider().open({ headless: true, printPath: output });
+        try {
+          const page = await session.context.newPage();
+          await page.setContent(
+            `<div id="paper" style="width:${width}px;height:${height}px">Selectable native text</div>`,
+          );
+          await evaluateMainWorld(
+            page,
+            `mw:() => {
+            window.docManager = {pages:{one:{pageNum:1,containerElem:document.getElementById('paper')}}};
+            return true;
+          }`,
+          );
+          const layout = await prepareExportDom(page, {
+            documentId: "1",
+            title: "Native print",
+            pageCount: 1,
+            width,
+            height,
+          });
+          await evaluateMainWorld(page, PRINT_DOCUMENT_SCRIPT);
+          await waitForPdf(output);
+          expect(layout).toEqual({ width, height });
+        } finally {
+          await session.close();
+        }
+        await normalizePrintedPdf(output, { width, height }, "Native print");
+        await validatePdf(output, 1);
+        const pdf = await PDFDocument.load(await readFile(output));
+        const page = pdf.getPage(0);
+        expect(page.getSize()).toEqual({ width: width * 0.75, height: height * 0.75 });
+        expect(
+          page.node.Resources()?.lookupMaybe(PDFName.of("Font"), PDFDict)?.keys().length,
+        ).toBeGreaterThan(0);
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+  120_000,
+);

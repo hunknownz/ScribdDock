@@ -52,7 +52,6 @@ export async function runCli(
     )
     .action(async (options: { source: SourceId }) => {
       await service.login(options.source);
-      io.out("浏览器会话已保存；下载时请省略 --guest。\n");
     });
   program
     .command("download")
@@ -67,15 +66,15 @@ export async function runCli(
         ...(options.output ? { output: options.output } : {}),
       };
       const output = await service.download(request, (loaded, total) =>
-        io.err(`已加载 ${loaded}/${total} 页\n`),
+        io.err(`render: ${loaded}/${total} pages\n`),
       );
-      io.out(`已保存：${output}\n`);
+      io.out(`${output}\n`);
     });
   try {
     await program.parseAsync(args, { from: "user" });
     return 0;
   } catch (error) {
-    if (error instanceof CommanderError) return error.exitCode;
+    if (error instanceof CommanderError) return error.exitCode === 0 ? 0 : 2;
     io.err(`error: ${errorMessage(error)}\n`);
     return 1;
   }

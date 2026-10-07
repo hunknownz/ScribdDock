@@ -68,7 +68,8 @@ export const LOAD_DOCUMENT_FONTS_SCRIPT = `mw:async () => {
   let timer;
   try {
     await Promise.race([
-      Promise.all(fonts.map(async (font) => {
+      (async () => {
+        await Promise.all(fonts.map(async (font) => {
         const url = new URL(font.url);
         if (url.protocol !== "https:" ||
             !(url.hostname === "scribdassets.com" || url.hostname.endsWith(".scribdassets.com"))) {
@@ -84,12 +85,13 @@ export const LOAD_DOCUMENT_FONTS_SCRIPT = `mw:async () => {
           throw new Error("document font failed: " + font.family);
         }
         document.fonts.add(face);
-      })),
+        }));
+        await document.fonts.ready;
+      })(),
       new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error("document fonts timed out")), 45000);
       }),
     ]);
-    await document.fonts.ready;
     return {loaded: fonts.length};
   } finally {
     clearTimeout(timer);

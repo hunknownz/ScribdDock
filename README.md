@@ -51,6 +51,8 @@ pnpm dev download "https://www.scribd.com/document/990798737/AAGnet" --guest -o 
 
 省略 `-o` 使用阅读器提供的文档标题命名；只有通用网站标题时使用文档 ID。支持完整 Markdown 链接，但建议直接使用纯 URL。
 
+下载成功时 stdout 只输出最终文件路径，加载进度和错误输出到 stderr。退出码：成功 0、运行失败 1、参数错误 2。
+
 构建后也可运行：
 
 ```bash
@@ -75,7 +77,7 @@ node dist/cli.js download "https://www.scribd.com/document/990798737/AAGnet" --g
 
 文档专用字体从阅读器提供的清单加载并注册，避免使用替代字体造成文字重叠。字体加载有超时限制，失败会中止导出。
 
-阅读器内容超过标称纸张尺寸时，导出区域会扩展以容纳内容。纸张尺寸可能与原文件不同；扩展后仍发生溢出会报错。macOS Quartz 的 PDF 页框可能与绘制区域不一致；程序只在绘制边界与阅读器布局匹配时修正页框，避免正文被裁切。详见 [PDF 导出与验证](docs/PDF_EXPORT.md)。
+阅读器内容超过标称纸张尺寸时，导出区域会扩展以容纳内容。纸张尺寸可能与原文件不同；扩展后仍发生溢出会报错。macOS Quartz 的 PDF 页框可能与绘制区域不一致，整页也可能等比缩放；程序检查布局比例后恢复页框、正文和链接坐标，避免裁切和点击位置错位。详见 [PDF 导出与验证](docs/PDF_EXPORT.md)。
 
 ## 开发与验证
 
@@ -90,4 +92,4 @@ pnpm build
 
 安装内核后，可以运行 `pnpm test:browser` 检查本地 Camoufox 的脚本调用和导出布局；该测试使用合成页面，不访问 Scribd。
 
-应用契约位于 `src/domain.ts`、`ports.ts`、`service.ts`；集成实现在 `adapters/`；`composition.ts` 绑定具体来源。参见 [来源契约](docs/SOURCE_CONTRACT.md)、[路线图](docs/ROADMAP.md) 、[开发约定](AGENTS.md) 和 [来源说明](docs/PROVENANCE.md)。
+应用契约位于 `src/domain.ts`、`ports.ts`、`service.ts`；集成实现在 `adapters/`；`composition.ts` 绑定具体来源。参见 [Python 参考对齐审计](docs/PARITY_AUDIT.md)、[来源契约](docs/SOURCE_CONTRACT.md)、[路线图](docs/ROADMAP.md)、[开发约定](AGENTS.md) 和 [来源说明](docs/PROVENANCE.md)。

@@ -1,0 +1,240 @@
+{
+  "baseline": {
+    "repository": "ma-pony/scribd-downloader",
+    "commit": "1ae93a753cdb56581d3cc7ffd5d674480519e682"
+  },
+  "filenames": [
+    {
+      "input": " A/B: C ",
+      "sanitized": "A_B_ C",
+      "output": "A_B_ C.pdf"
+    },
+    {
+      "input": "工艺 文档",
+      "sanitized": "工艺 文档",
+      "output": "工艺 文档.pdf"
+    },
+    {
+      "input": "A\\B/C:D*E?F\"G<H>I|J",
+      "sanitized": "A_B_C_D_E_F_G_H_I_J",
+      "output": "A_B_C_D_E_F_G_H_I_J.pdf"
+    },
+    {
+      "input": "...",
+      "sanitized": "",
+      "output": "884183779.pdf"
+    },
+    {
+      "input": "  .Hello.  ",
+      "sanitized": "Hello",
+      "output": "Hello.pdf"
+    },
+    {
+      "input": "Hello\tWorld",
+      "sanitized": "Hello_World",
+      "output": "Hello_World.pdf"
+    },
+    {
+      "input": "File\nName",
+      "sanitized": "File_Name",
+      "output": "File_Name.pdf"
+    },
+    {
+      "input": "测试:文档",
+      "sanitized": "测试_文档",
+      "output": "测试_文档.pdf"
+    },
+    {
+      "input": "",
+      "sanitized": "",
+      "output": "884183779.pdf"
+    },
+    {
+      "input": "   ",
+      "sanitized": "",
+      "output": "884183779.pdf"
+    }
+  ],
+  "urls": [
+    {
+      "input": "https://www.scribd.com/document/884183779/Sample-5-Page-PDF",
+      "documentId": "884183779",
+      "embedUrl": "https://www.scribd.com/embeds/884183779/content?start_page=1&view_mode=scroll"
+    },
+    {
+      "input": "https://scribd.com/document/990798737/AAGnet",
+      "documentId": "990798737",
+      "embedUrl": "https://www.scribd.com/embeds/990798737/content?start_page=1&view_mode=scroll"
+    },
+    {
+      "input": "http://www.scribd.com/embeds/123/content?view_mode=scroll",
+      "documentId": "123",
+      "embedUrl": "https://www.scribd.com/embeds/123/content?start_page=1&view_mode=scroll"
+    },
+    {
+      "input": "https://example.com/document/123/test",
+      "rejected": true
+    },
+    {
+      "input": "https://www.scribd.com/book/123/test",
+      "rejected": true
+    },
+    {
+      "input": "https://www.scribd.com/document/not-a-number/test",
+      "rejected": true
+    }
+  ],
+  "resources": [
+    {
+      "url": "https://html.scribdassets.com/abc/pages/3-page.jsonp",
+      "type": "script",
+      "kind": "page"
+    },
+    {
+      "url": "https://html.scribdassets.com/abc/pages/images/a.jpg",
+      "type": "image",
+      "kind": "page"
+    },
+    {
+      "url": "https://html.scribdassets.com/abc/fonts/3-document.woff2",
+      "type": "font",
+      "kind": "font"
+    },
+    {
+      "url": "https://html.scribdassets.com/webpack/assets/fonts/scribd_sans/ScribdSans.woff2",
+      "type": "font",
+      "kind": null
+    },
+    {
+      "url": "https://html.scribdassets.com/webpack/font.woff2",
+      "type": "font",
+      "kind": null
+    },
+    {
+      "url": "https://analytics.example/pixel",
+      "type": "image",
+      "kind": null
+    },
+    {
+      "url": "https://html.scribdassets.com/abc/fonts/f.otf",
+      "type": "other",
+      "kind": "font"
+    }
+  ],
+  "states": [
+    {
+      "input": {
+        "title": "Sample",
+        "pageCount": 1,
+        "sizes": [
+          [
+            612,
+            792
+          ]
+        ],
+        "missing": []
+      },
+      "expected": {
+        "documentId": "884183779",
+        "title": "Sample",
+        "pageCount": 1,
+        "width": 612,
+        "height": 792
+      }
+    },
+    {
+      "input": {
+        "title": "  SCRIBD  ",
+        "pageCount": 1,
+        "sizes": [
+          [
+            612,
+            792
+          ]
+        ],
+        "missing": []
+      },
+      "expected": {
+        "documentId": "884183779",
+        "title": "",
+        "pageCount": 1,
+        "width": 612,
+        "height": 792
+      }
+    },
+    {
+      "input": {
+        "title": "",
+        "pageCount": 1,
+        "sizes": [
+          [
+            612,
+            792
+          ]
+        ],
+        "missing": []
+      },
+      "expected": {
+        "documentId": "884183779",
+        "title": "",
+        "pageCount": 1,
+        "width": 612,
+        "height": 792
+      }
+    }
+  ],
+  "parser": [
+    {
+      "args": [],
+      "exitCode": 2
+    },
+    {
+      "args": [
+        "download"
+      ],
+      "exitCode": 2
+    },
+    {
+      "args": [
+        "other"
+      ],
+      "exitCode": 2
+    },
+    {
+      "args": [
+        "download",
+        "https://www.scribd.com/document/123",
+        "--unknown"
+      ],
+      "exitCode": 2
+    },
+    {
+      "args": [
+        "download",
+        "https://www.scribd.com/document/123",
+        "-o"
+      ],
+      "exitCode": 2
+    },
+    {
+      "args": [
+        "--help"
+      ],
+      "exitCode": 0
+    },
+    {
+      "args": [
+        "login",
+        "--help"
+      ],
+      "exitCode": 0
+    },
+    {
+      "args": [
+        "download",
+        "--help"
+      ],
+      "exitCode": 0
+    }
+  ]
+}

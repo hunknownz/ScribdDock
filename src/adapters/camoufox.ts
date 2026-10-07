@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { DownloaderError, errorMessage } from "../errors.js";
 import type { BrowserOptions, BrowserProvider, BrowserSession } from "./browser.js";
 
 export function profileDirectory(env: NodeJS.ProcessEnv = process.env): string {
@@ -41,6 +42,19 @@ export function printPreferences(path: string): Record<string, boolean | string>
 
 export class CamoufoxProvider implements BrowserProvider {
   async open(options: BrowserOptions): Promise<BrowserSession> {
+    try {
+      return await this.startSession(options);
+    } catch (error) {
+      if (/camoufox fetch/i.test(errorMessage(error)))
+        throw new DownloaderError(
+          "browser: Camoufox 未安装或版本不兼容；请运行 pnpm browser:install 后重试",
+          { cause: error },
+        );
+      throw error;
+    }
+  }
+
+  private async startSession(options: BrowserOptions): Promise<BrowserSession> {
     const { Camoufox } = await import("camoufox");
     const os =
       process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "linux";

@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PDFDocument } from "pdf-lib";
@@ -62,6 +62,7 @@ describe("Scribd adapter with a simulated browser", () => {
   it("navigates before confirming login and closes the session", async () => {
     const browser = browserFixture();
     const profile = join(directory, "profile");
+    await mkdir(profile, { mode: 0o755 });
     const confirm = vi.fn(async () => {
       expect(browser.page.goto).toHaveBeenCalledWith(
         "https://www.scribd.com/login",
@@ -164,5 +165,19 @@ describe("Scribd adapter with a simulated browser", () => {
     ).rejects.toThrow("close failed");
     expect(await readFile(output, "utf8")).toBe("existing");
     expect(await readdir(directory)).toEqual(["output.pdf"]);
+  });
+  it("reports an invalid destination before opening the browser", async () => {
+    const browser = browserFixture();
+    const parent = join(directory, "blocker");
+    await writeFile(parent, "existing");
+    await expect(
+      new ScribdAdapter(browser.provider).download({
+        url: "https://scribd.com/document/123",
+        guest: true,
+        output: join(parent, "book.pdf"),
+      }),
+    ).rejects.toThrow(/^output: failed to prepare destination/);
+    expect(browser.open).not.toHaveBeenCalled();
+    expect(await readFile(parent, "utf8")).toBe("existing");
   });
 });

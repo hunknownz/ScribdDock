@@ -8,7 +8,7 @@ interface FontSpec {
   style?: string;
 }
 
-function fontHarness(fonts: FontSpec[], pending = false) {
+function fontHarness(fonts: FontSpec[], pending = false, ready: Promise<void> = Promise.resolve()) {
   const created: { family: string; source: string; descriptors: Record<string, string> }[] = [];
   const add = vi.fn();
   class TestFont {
@@ -35,7 +35,7 @@ function fontHarness(fonts: FontSpec[], pending = false) {
             _fontLoader: { fonts: Object.fromEntries(fonts.map((font, index) => [index, font])) },
           },
         },
-        { fonts: { add, ready: Promise.resolve() } },
+        { fonts: { add, ready } },
         TestFont,
       ) as Promise<{ loaded: number }>,
   };
@@ -82,6 +82,15 @@ it("has a bounded failure when a font never loads", async () => {
     true,
   );
   const result = expect(harness.run()).rejects.toThrow("document fonts timed out");
+  await vi.advanceTimersByTimeAsync(45_000);
+  await result;
+});
+
+it("has a bounded failure when document.fonts.ready never settles", async () => {
+  vi.useFakeTimers();
+  const result = expect(fontHarness([], false, new Promise(() => {})).run()).rejects.toThrow(
+    "document fonts timed out",
+  );
   await vi.advanceTimersByTimeAsync(45_000);
   await result;
 });

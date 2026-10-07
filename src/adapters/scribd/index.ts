@@ -80,8 +80,15 @@ export class ScribdAdapter implements SourceAdapter {
     const baseDir = requestedOutput ? dirname(requestedOutput) : process.cwd();
     let temporary: string | undefined;
     try {
-      await mkdir(baseDir, { recursive: true });
-      temporary = await mkdtemp(join(baseDir, ".scribddock-"));
+      try {
+        await mkdir(baseDir, { recursive: true });
+        temporary = await mkdtemp(join(baseDir, ".scribddock-"));
+      } catch (error) {
+        throw new DownloaderError(
+          `output: failed to prepare destination (${errorMessage(error)})`,
+          { cause: error },
+        );
+      }
       const partial = join(temporary, "document.pdf");
       if (!request.guest) await this.prepareProfile();
       const session = await this.browsers.open({
@@ -105,7 +112,14 @@ export class ScribdAdapter implements SourceAdapter {
         await session.close();
       }
       if (!completion) throw new DownloaderError("PDF: 没有完成的文档");
-      await normalizePrintedPdf(partial, completion.layout, completion.title);
+      await normalizePrintedPdf(partial, completion.layout, completion.title).catch(
+        (error: unknown) => {
+          if (error instanceof DownloaderError) throw error;
+          throw new DownloaderError(`print: generated PDF is invalid (${errorMessage(error)})`, {
+            cause: error,
+          });
+        },
+      );
       await finalizePdf(partial, completion.output, completion.pageCount);
       return completion.output;
     } catch (error) {

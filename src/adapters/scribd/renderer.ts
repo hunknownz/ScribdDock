@@ -54,7 +54,7 @@ export function validateDocumentState(documentId: string, state: ManagerState): 
   if (sizes.some((size) => size.length !== 2 || size.some((n) => !Number.isFinite(n) || n <= 0)))
     throw new DownloaderError("render: 文档页面尺寸无效");
   const readerTitle = state.title?.trim();
-  const title = !readerTitle || /^Scribd$/i.test(readerTitle) ? documentId : readerTitle;
+  const title = !readerTitle || /^Scribd$/i.test(readerTitle) ? "" : readerTitle;
   if (/^(?:error|page not found|access denied|404)(?:\b|$)/i.test(title))
     throw new DownloaderError("render: 阅读器返回错误页面");
   return {
@@ -74,10 +74,13 @@ export class ResourceMonitor {
     if (!(url.hostname === "scribdassets.com" || url.hostname.endsWith(".scribdassets.com")))
       return;
     const path = url.pathname.toLowerCase();
-    if (path.endsWith(".jsonp") || (path.includes("/pages/") && !path.includes("/images/")))
-      return "page";
-    if (resourceType === "font" || /\.(?:woff2?|ttf|otf)$/.test(path)) return "font";
+    if (path.endsWith(".jsonp") || path.includes("/pages/")) return "page";
     if (resourceType === "image" && path.includes("/images/")) return "image";
+    if (
+      !path.includes("/webpack/") &&
+      (resourceType === "font" || /\.(?:woff2?|ttf|otf)$/.test(path))
+    )
+      return "font";
   }
 
   record(rawUrl: string, resourceType: string, detail: string): void {
@@ -123,9 +126,12 @@ export async function waitForManager(page: Page, timeoutMs = 60_000): Promise<Ma
       return state;
     await delay(250);
   }
-  throw new DownloaderError(
-    `render: Scribd initialization timed out (${state.missing?.join(", ") || "文档页面未就绪"})`,
-  );
+  const detail =
+    state.missing?.join(", ") ||
+    (state.pageCount
+      ? `registered ${state.sizes?.length ?? 0}/${state.pageCount} pages`
+      : "window.docManager");
+  throw new DownloaderError(`render: Scribd initialization timed out (${detail})`);
 }
 
 export async function waitForBatch(
@@ -136,7 +142,14 @@ export async function waitForBatch(
 ): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (await evaluateMainWorld(page, BATCH_READY_SCRIPT, { start, end })) return;
+    try {
+      if (await evaluateMainWorld(page, BATCH_READY_SCRIPT, { start, end })) return;
+    } catch (error) {
+      throw new DownloaderError(
+        `render: pages ${start + 1}-${end} readiness failed (${errorMessage(error)})`,
+        { cause: error },
+      );
+    }
     await delay(250);
   }
   throw new DownloaderError(`render: 第 ${start + 1}-${end} 页未完成加载`);
@@ -149,10 +162,16 @@ export async function renderDocument(
 ): Promise<DocumentInfo> {
   const monitor = new ResourceMonitor();
   monitor.attach(page);
-  const response = await page.goto(ref.embedUrl, {
-    waitUntil: "domcontentloaded",
-    timeout: 120_000,
-  });
+  const response = await page
+    .goto(ref.embedUrl, {
+      waitUntil: "domcontentloaded",
+      timeout: 120_000,
+    })
+    .catch((error: unknown) => {
+      throw new DownloaderError(`navigation: Scribd navigation failed (${errorMessage(error)})`, {
+        cause: error,
+      });
+    });
   if (!response || response.status() >= 400)
     throw new DownloaderError(`navigation: Scribd 返回 ${response?.status() ?? "无响应"}`);
   const info = validateDocumentState(ref.documentId, await waitForManager(page));
@@ -163,11 +182,25 @@ export async function renderDocument(
   }
   for (let start = 0; start < info.pageCount; start += 8) {
     const end = Math.min(start + 8, info.pageCount);
-    await evaluateMainWorld(page, LOAD_BATCH_SCRIPT, { start, end });
+    try {
+      await evaluateMainWorld(page, LOAD_BATCH_SCRIPT, { start, end });
+    } catch (error) {
+      throw new DownloaderError(
+        `render: pages ${start + 1}-${end} load failed (${errorMessage(error)})`,
+        { cause: error },
+      );
+    }
     await waitForBatch(page, start, end);
     progress?.(end, info.pageCount);
   }
-  await evaluateMainWorld(page, "mw:async () => { await document.fonts.ready; return true; }");
+  await evaluateMainWorld(
+    page,
+    "mw:async () => { await document.fonts.ready; return true; }",
+  ).catch((error: unknown) => {
+    throw new DownloaderError(`render: document fonts failed (${errorMessage(error)})`, {
+      cause: error,
+    });
+  });
   const failure = monitor.failures[0];
   if (failure)
     throw new DownloaderError(`resources: ${failure.kind} ${failure.detail} (${failure.url})`);
@@ -181,7 +214,13 @@ export interface ExportLayout {
 
 export async function prepareExportDom(page: Page, info: DocumentInfo): Promise<ExportLayout> {
   const result: ExportLayout & { renderedPages: number; layoutFailures?: string[] } =
-    await evaluateMainWorld(page, PREPARE_EXPORT_SCRIPT, { pageCount: info.pageCount });
+    await evaluateMainWorld<ExportLayout & { renderedPages: number; layoutFailures?: string[] }>(
+      page,
+      PREPARE_EXPORT_SCRIPT,
+      { pageCount: info.pageCount },
+    ).catch((error: unknown) => {
+      throw new DownloaderError(`print DOM: ${errorMessage(error)}`, { cause: error });
+    });
   if (result.renderedPages !== info.pageCount)
     throw new DownloaderError("export DOM: 页面数量不匹配");
   if (result.layoutFailures?.length)

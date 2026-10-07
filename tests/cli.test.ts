@@ -76,9 +76,9 @@ describe("CLI", () => {
     },
   );
 
-  it("returns argument errors with code 1", async () => {
+  it("returns argument errors with code 2", async () => {
     const { service, io } = setup();
-    expect(await runCli(["login", "--source", "unknown"], service, io)).toBe(1);
+    expect(await runCli(["login", "--source", "unknown"], service, io)).toBe(2);
     expect(io.err).toHaveBeenCalled();
   });
 });
