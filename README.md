@@ -17,7 +17,9 @@ TypeScript 命令行工具，围绕 Scribd 家族组织来源适配器。使用 
 
 需要 Node.js 22.15+，推荐 24 LTS；使用 pnpm 11.19.0。macOS 可先运行 `brew install node@24` 和 `brew link --force node@24`。
 
-Windows 支持目标为 x64，推荐 Windows 11 和 Node.js 24 LTS x64；安装命令、PowerShell 用法和验证范围见 [Windows 指南](docs/WINDOWS.md)。
+支持 Windows x64，推荐 Windows 11 和 Node.js 24 LTS x64；安装命令、PowerShell 用法和验证范围见 [Windows 指南](docs/WINDOWS.md)。
+
+已在 Windows x64 runner 验证真实 Camoufox、profile 重启复用和公开五页下载；独立提取的每页文字与 Python 参考一致。桌面真人账号登录和逐页视觉效果尚未验收。
 
 ```bash
 git clone git@github.com:hunknownz/ScribdDock.git

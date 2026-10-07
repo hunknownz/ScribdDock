@@ -1,6 +1,6 @@
 # Windows 安装与验证
 
-支持目标为 Windows x64，推荐 Windows 11、Node.js 24 LTS x64 和 PowerShell。当前锁定的 Camoufox SDK 提供 Windows x64 内核；本项目没有验证 Windows ARM64 或 32 位系统。
+支持 Windows x64，推荐 Windows 11、Node.js 24 LTS x64 和 PowerShell。当前锁定的 Camoufox SDK 提供 Windows x64 内核；本项目没有验证 Windows ARM64 或 32 位系统。
 
 ## 安装和使用
 
@@ -57,7 +57,9 @@ Windows 使用同一个 Camoufox 的 WebDriver 原生打印接口，明确选择
 
 默认 CI 在 Linux 和 Windows 上运行类型检查、格式检查、离线测试及构建，不登录网站。独立的 `Windows smoke` 工作流按需安装真实 Camoufox，检查主世界脚本、打印布局、不同纸张尺寸、字体资源，以及含中文和空格的 profile 目录能否在重启后恢复合成会话；选择公开样例下载时还检查五页文档及每页文字绘制指令。
 
-本地六项合成浏览器测试已在 macOS 通过，包含原生 WebDriver 打印。Windows runner 已通过启动、DOM 布局、合成 profile 重启恢复和原生 PDF 字体检查，正在验证整数点页框校正及真实公开样例。Windows 人工账号登录和逐页视觉效果尚未验收。文字绘制指令检查不能代替实际文字提取、复制和完整视觉审核。
+2026-10-08 已在 Windows Server 2025 x64 runner、Node.js 24、camoufox SDK 0.5.8、内核 156.0.1-beta.36 上通过 [Windows 真实验证](https://github.com/hunknownz/ScribdDock/actions/runs/37692218020)，应用提交为 `91b886b31bdab0cc8b27dbc1738b2254bcef983f`。六项真实浏览器测试通过，覆盖主世界脚本、正常/拒绝的 DOM 布局、含中文和空格的 profile 重启恢复、目标标签页选择、原生字体及两种纸张尺寸。公开五页下载测试通过；编译后 CLI 的另一次下载也通过独立 pypdf 提取，全部五页规范化文字与 Python 参考一致。[Linux / Windows 离线 CI](https://github.com/hunknownz/ScribdDock/actions/runs/37692104825) 同时通过。
+
+本地 macOS 的六项合成浏览器测试也通过。Windows 桌面真人账号登录、PDF 阅读器中的手动复制以及逐页视觉效果尚未验收；合成会话、自动文字提取和公开文档不能证明订阅受限内容的权限或完整效果。
 
 公开样例的按需验收还会运行编译后的 CLI，用 CI 专用 pypdf 6.10.0 独立提取每页文字，并与 Python 参考的五页文字 SHA-256 对照（NFKC 规范化、去除空白）。该 Python 工具仅用于独立验收；应用安装、登录、下载不依赖 Python。CI 清理临时 PDF，不上传文档或 profile。
 
