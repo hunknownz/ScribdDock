@@ -92,13 +92,15 @@ describe("Python reference contracts", () => {
   });
 
   it("targets the temporary PDF and preserves native print settings", () => {
-    const preferences = printPreferences("/tmp/.book.partial.pdf");
+    const output = join(tmpdir(), ".book.partial.pdf");
+    const preferences = printPreferences(output);
     expect(preferences["print.always_print_silent"]).toBe(true);
     expect(preferences.print_printer).toBe("Mozilla Save to PDF");
-    expect(preferences["print.print_to_filename"]).toBe("/tmp/.book.partial.pdf");
-    expect(preferences["print.printer_Mozilla_Save_to_PDF.print_to_filename"]).toBe(
-      "/tmp/.book.partial.pdf",
-    );
+    expect(preferences["print.print_to_filename"]).toBe(output);
+    expect(preferences["print.printer_Mozilla_Save_to_PDF.print_to_filename"]).toBe(output);
     expect(preferences["print.save_as_pdf.use_page_rule_size_as_paper_size.enabled"]).toBe(true);
   });
 });
+
+import { tmpdir } from "node:os";
+import { join } from "node:path";

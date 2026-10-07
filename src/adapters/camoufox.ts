@@ -1,11 +1,11 @@
-import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { DownloaderError, errorMessage } from "../errors.js";
 import type { BrowserOptions, BrowserProvider, BrowserSession } from "./browser.js";
+import { expandHomePath } from "./paths.js";
 
 export function profileDirectory(env: NodeJS.ProcessEnv = process.env): string {
   const configured = env.SCRIBDDOCK_PROFILE_DIR ?? "~/.scribddock/profiles/scribd";
-  return resolve(configured === "~" ? homedir() : configured.replace(/^~\//, `${homedir()}/`));
+  return resolve(expandHomePath(configured));
 }
 
 export function printPreferences(path: string): Record<string, boolean | string> {

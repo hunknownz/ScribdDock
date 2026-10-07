@@ -14,6 +14,8 @@
 
 默认 `CamoufoxProvider` 通过官方 camoufox TypeScript SDK 启动 Camoufox，使用与宿主一致的 OS、en-US locale 和主世界脚本执行。登录有界面并保存 profile，下载无界面；不自动回退到其他浏览器。浏览器使用官方 SDK 的平台缓存，profile 默认为 ~/.scribddock/profiles/scribd。
 
+Windows profile 默认为 `%USERPROFILE%\.scribddock\profiles\scribd`，继承所在目录的 NTFS 权限；POSIX 系统设置 `0700`。profile 和输出路径支持 `~/`、`~\` 主目录展开。自动文件名避开 Windows 保留名称；Windows 上显式指定保留文件名时在启动浏览器前失败。平台安装和验证范围见 [Windows 指南](WINDOWS.md)。
+
 Camoufox 官方 SDK 自身控制支持的内核版本范围。锁定 Node 依赖不等于锁定远端平台接口；不能擅自启动不受 SDK 支持的内核。
 
 ## 输入与失败

@@ -1,14 +1,14 @@
 import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
-import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { stdin, stdout } from "node:process";
 import { createInterface } from "node:readline/promises";
 import type { DownloadRequest } from "../../domain.js";
 import { DownloaderError, errorMessage } from "../../errors.js";
-import { defaultOutputFilename } from "../../filenames.js";
+import { defaultOutputFilename, isWindowsReservedFilename } from "../../filenames.js";
 import type { ProgressCallback, SourceAdapter } from "../../ports.js";
 import type { BrowserProvider } from "../browser.js";
 import { CamoufoxProvider, profileDirectory } from "../camoufox.js";
+import { expandHomePath } from "../paths.js";
 import { finalizePdf, normalizePrintedPdf, waitForPdf } from "../pdf.js";
 import { evaluateMainWorld } from "./evaluate.js";
 import {
@@ -47,7 +47,7 @@ export class ScribdAdapter implements SourceAdapter {
 
   private async prepareProfile(): Promise<void> {
     await mkdir(this.profile, { recursive: true, mode: 0o700 });
-    await chmod(this.profile, 0o700);
+    if (process.platform !== "win32") await chmod(this.profile, 0o700);
   }
 
   async login(): Promise<void> {
@@ -74,9 +74,13 @@ export class ScribdAdapter implements SourceAdapter {
 
   async download(request: DownloadRequest, progress?: ProgressCallback): Promise<string> {
     const ref = parseDocumentUrl(request.url);
-    const requestedOutput = request.output
-      ? resolve(request.output.replace(/^~\//, `${homedir()}/`))
-      : undefined;
+    const requestedOutput = request.output ? resolve(expandHomePath(request.output)) : undefined;
+    if (
+      process.platform === "win32" &&
+      requestedOutput &&
+      isWindowsReservedFilename(basename(requestedOutput))
+    )
+      throw new DownloaderError("output: Windows 保留文件名；请用 -o 指定其他名称");
     const baseDir = requestedOutput ? dirname(requestedOutput) : process.cwd();
     let temporary: string | undefined;
     try {

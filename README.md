@@ -17,6 +17,8 @@ TypeScript 命令行工具，围绕 Scribd 家族组织来源适配器。使用 
 
 需要 Node.js 22.15+，推荐 24 LTS；使用 pnpm 11.19.0。macOS 可先运行 `brew install node@24` 和 `brew link --force node@24`。
 
+Windows 支持目标为 x64，推荐 Windows 11 和 Node.js 24 LTS x64；安装命令、PowerShell 用法和验证范围见 [Windows 指南](docs/WINDOWS.md)。
+
 ```bash
 git clone git@github.com:hunknownz/ScribdDock.git
 cd ScribdDock
@@ -25,7 +27,7 @@ pnpm install --frozen-lockfile
 pnpm browser:install
 ```
 
-Camoufox 内核使用官方 SDK 的平台缓存目录（macOS 为 `~/Library/Caches/camoufox`），可复用兼容的已有安装。登录 profile 单独存放。
+Camoufox 内核使用官方 SDK 的平台缓存目录（macOS 为 `~/Library/Caches/camoufox`，Windows 为 `%LOCALAPPDATA%\camoufox\camoufox\Cache`），可复用兼容的已有安装。登录 profile 单独存放。
 
 安装器会复用兼容的已有内核；需要重新安装时运行 `pnpm browser:install --force`。浏览器版本由锁定的 JS SDK 的兼容范围决定。
 
@@ -63,7 +65,7 @@ node dist/cli.js download "https://www.scribd.com/document/990798737/AAGnet" --g
 
 ## 数据和失败行为
 
-- profile 在 `~/.scribddock/profiles/scribd`；环境变量 `SCRIBDDOCK_PROFILE_DIR` 可以覆盖该位置。
+- profile 在当前用户主目录下的 `.scribddock/profiles/scribd`（Windows 为 `%USERPROFILE%\.scribddock\profiles\scribd`）；环境变量 `SCRIBDDOCK_PROFILE_DIR` 可以覆盖该位置。支持 `~/`、`~\` 路径。
 - `--guest` 不读取已保存 profile；登录后请省略这个选项。
 - 每次下载使用独立的临时目录。PDF 校验成功后才替换目标，失败保留已有文件并清理本次临时文件。
 - 浏览器内核、profile、Cookie、密码、环境变量文件和下载内容不提交到 Git。
@@ -88,7 +90,7 @@ pnpm test
 pnpm build
 ```
 
-普通测试不联网、不启动浏览器。需要明确执行真实下载验证时运行 `pnpm test:live`；可用 `SCRIBD_TEST_URL` 提供自己有权下载的样例。真实测试创建并清理临时 PDF，不包含人工视觉审核。
+普通测试不联网、不启动浏览器，在 Linux、Windows CI 中运行。需要明确执行真实下载验证时运行 `pnpm test:live`；可用 `SCRIBD_TEST_URL` 提供自己有权下载的样例。真实测试创建并清理临时 PDF，不包含人工视觉审核。
 
 安装内核后，可以运行 `pnpm test:browser` 检查本地 Camoufox 的脚本调用和导出布局；该测试使用合成页面，不访问 Scribd。
 

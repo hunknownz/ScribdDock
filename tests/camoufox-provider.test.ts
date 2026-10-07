@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CamoufoxProvider } from "../src/adapters/camoufox.js";
 
@@ -10,9 +12,10 @@ describe("Camoufox guest and persistent options", () => {
     const context = { close: vi.fn() };
     const browser = { newContext: vi.fn(async () => context), close: vi.fn(async () => {}) };
     launch.mockResolvedValue(browser);
+    const printPath = join(tmpdir(), "partial.pdf");
     const session = await new CamoufoxProvider().open({
       headless: true,
-      printPath: "/tmp/partial.pdf",
+      printPath,
     });
     const options = launch.mock.calls[0]?.[0];
     expect(options).toMatchObject({
@@ -22,7 +25,8 @@ describe("Camoufox guest and persistent options", () => {
       locale: "en-US",
     });
     expect(options).not.toHaveProperty("user_data_dir");
-    expect(options.firefox_user_prefs["print.print_to_filename"]).toBe("/tmp/partial.pdf");
+    expect(options.firefox_user_prefs["print.print_to_filename"]).toBe(printPath);
+    if (process.platform === "win32") expect(options.os).toBe("windows");
     await session.close();
     expect(browser.close).toHaveBeenCalledOnce();
   });

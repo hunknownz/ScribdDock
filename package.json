@@ -27,8 +27,8 @@
     "check": "biome check .",
     "format": "biome check --write .",
     "test": "vitest run",
-    "test:live": "SCRIBD_LIVE=1 vitest run tests/live-scribd.test.ts",
-    "test:browser": "SCRIBD_BROWSER=1 vitest run tests/browser.test.ts",
+    "test:live": "tsx scripts/run-integration-tests.ts live",
+    "test:browser": "tsx scripts/run-integration-tests.ts browser",
     "browser:install": "tsx scripts/install-browser.ts"
   },
   "dependencies": {

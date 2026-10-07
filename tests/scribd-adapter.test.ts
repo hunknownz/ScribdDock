@@ -59,6 +59,20 @@ function browserFixture({ status = 200, validPdf = true } = {}) {
 }
 
 describe("Scribd adapter with a simulated browser", () => {
+  it.runIf(process.platform === "win32")(
+    "rejects an explicit Windows device output before opening the browser",
+    async () => {
+      const browser = browserFixture();
+      await expect(
+        new ScribdAdapter(browser.provider).download({
+          url: "https://scribd.com/document/123",
+          guest: true,
+          output: join(directory, "NUL.pdf"),
+        }),
+      ).rejects.toThrow("Windows 保留文件名");
+      expect(browser.open).not.toHaveBeenCalled();
+    },
+  );
   it("navigates before confirming login and closes the session", async () => {
     const browser = browserFixture();
     const profile = join(directory, "profile");
@@ -75,7 +89,9 @@ describe("Scribd adapter with a simulated browser", () => {
     expect(browser.context.newPage).not.toHaveBeenCalled();
     expect(confirm).toHaveBeenCalledOnce();
     expect(browser.close).toHaveBeenCalledOnce();
-    expect((await stat(profile)).mode & 0o777).toBe(0o700);
+    const profileStat = await stat(profile);
+    expect(profileStat.isDirectory()).toBe(true);
+    if (process.platform !== "win32") expect(profileStat.mode & 0o777).toBe(0o700);
   });
 
   it("rejects a failed login page before prompting", async () => {

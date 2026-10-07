@@ -10,6 +10,8 @@
 
 运行 pnpm typecheck、pnpm check、pnpm test、pnpm build 和 git diff --check。来源契约变化必须验证正常输入、无效输入、明确拒绝和参数传递。模拟测试、真实联网运行及视觉审核分别报告。真实测试默认跳过。
 
+CI 覆盖 Linux 和 Windows x64。npm 脚本不得依赖 Unix 环境变量赋值或 shell 工具；路径使用 Node 标准库。Windows 继承 NTFS 权限，不把 POSIX 0700 作为 Windows 安全断言。原生浏览器与打印验证使用按需 Windows smoke 工作流，不能仅凭离线测试声称实际下载效果已验收。
+
 ## 数据
 
 不提交密码、Cookie、profile、环境变量文件或下载内容。不覆盖失败下载的既有输出。不得绕过登录、订阅、验证码或 DRM，不以预览或非空内容流证明完整性。新来源未通过真实授权样例验证前，canDownload 不得设为 true。
