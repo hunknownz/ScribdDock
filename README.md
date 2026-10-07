@@ -83,6 +83,14 @@ node dist/cli.js download "https://www.scribd.com/document/990798737/AAGnet" --g
 
 阅读器内容超过标称纸张尺寸时，导出区域会扩展以容纳内容。纸张尺寸可能与原文件不同；扩展后仍发生溢出会报错。macOS Quartz 的 PDF 页框可能与绘制区域不一致，整页也可能等比缩放；程序检查布局比例后恢复页框、正文和链接坐标，避免裁切和点击位置错位。详见 [PDF 导出与验证](docs/PDF_EXPORT.md)。
 
+## Codex skill
+
+项目附带 [ScribdDock 助手](skills/scribddock/SKILL.md)，用于安装、手动登录、下载与排障。它按当前 checkout 的能力执行操作，保留 profile 和既有输出，不代表新增了下载来源。
+
+将整个 `skills/scribddock` 目录复制到 Codex 的 `$CODEX_HOME/skills`；未配置 `CODEX_HOME` 时使用用户主目录下的 `.codex/skills`，Windows 通常为 `%USERPROFILE%\.codex\skills`。已有同名 skill 时先比较版本，避免覆盖自己的修改。
+
+调用示例：`使用 $scribddock 下载这个 Scribd 链接，保存到我的 Downloads 目录。` 安装到本机的副本与仓库分开；更新项目后需同步 skill 的三个文件。
+
 ## 开发与验证
 
 ```bash
