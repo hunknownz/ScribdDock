@@ -1,9 +1,21 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
+import {
+  clip,
+  decodePDFRawStream,
+  endPath,
+  PDFArray,
+  PDFDict,
+  PDFDocument,
+  PDFName,
+  PDFRawStream,
+  popGraphicsState,
+  pushGraphicsState,
+  rectangle,
+} from "pdf-lib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { assemblePdf, finalizePdf, validatePdf } from "../src/adapters/pdf.js";
+import { finalizePdf, normalizePrintedPdf, validatePdf, waitForPdf } from "../src/adapters/pdf.js";
 
 let directory: string;
 beforeEach(async () => {
@@ -24,37 +36,89 @@ async function fixture(pages = 1, blank = false): Promise<string> {
   return file;
 }
 
-describe("page image assembly", () => {
-  const png = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+NocAAAAASUVORK5CYII=",
-    "base64",
-  );
+async function quartzFixture(width = 751.5, withClip = true): Promise<string> {
+  const document = await PDFDocument.create();
+  document.setProducer("macOS Quartz PDFContext");
+  const page = document.addPage([612, 792]);
+  if (withClip)
+    page.pushOperators(
+      pushGraphicsState(),
+      rectangle(0, 918.75, width, 1001.25),
+      clip(),
+      endPath(),
+    );
+  page.drawText("Heading", { x: 20, y: 1800 });
+  if (withClip) page.pushOperators(popGraphicsState());
+  const output = join(directory, "quartz.pdf");
+  await writeFile(output, await document.save());
+  return output;
+}
 
-  it("embeds every page at its CSS pixel size and records the title", async () => {
-    const output = join(directory, "images.pdf");
-    await assemblePdf([png, png], output, "Sample document");
-    const document = await PDFDocument.load(await readFile(output));
-    expect(document.getPageCount()).toBe(2);
-    expect(document.getTitle()).toBe("Sample document");
-    expect(document.getCreator()).toBe("ScribdDock");
-    for (const page of document.getPages()) {
-      expect(page.getSize()).toEqual({ width: 0.75, height: 0.75 });
-      expect(
-        page.node.Resources()?.lookupMaybe(PDFName.of("XObject"), PDFDict)?.keys(),
-      ).toHaveLength(1);
-    }
-    await expect(validatePdf(output, 2)).resolves.toBeUndefined();
+describe("native printing", () => {
+  it("repairs the Quartz page box while retaining native text and font resources", async () => {
+    const file = await quartzFixture();
+    await normalizePrintedPdf(file, { width: 1002, height: 1335 }, "Document title");
+    const document = await PDFDocument.load(await readFile(file));
+    const page = document.getPages()[0];
+    if (!page) throw new Error("No page");
+    expect(page.getMediaBox()).toEqual({ x: 0, y: 0, width: 751.5, height: 1001.25 });
+    expect(page.getCropBox()).toEqual(page.getMediaBox());
+    expect(document.getTitle()).toBe("Document title");
+    expect(
+      page.node.Resources()?.lookupMaybe(PDFName.of("Font"), PDFDict)?.keys().length,
+    ).toBeGreaterThan(0);
+    const contents = page.node.Contents();
+    if (!(contents instanceof PDFArray)) throw new Error("Expected preserved streams");
+    const decoded = Array.from({ length: contents.size() }, (_, i) =>
+      Buffer.from(decodePDFRawStream(contents.lookup(i, PDFRawStream)).decode()).toString("latin1"),
+    ).join("\n");
+    expect(decoded).toContain("-918.75 cm");
+    expect(decoded).toContain("48656164696E67");
+    expect(decoded).toContain("BT");
+    await expect(validatePdf(file, 1)).resolves.toBeUndefined();
   });
 
   it.each([
-    { images: [] },
-    { images: [Buffer.from("invalid PNG")] },
-    { images: [png, Buffer.from("invalid PNG")] },
-  ])("preserves an existing file if images cannot be assembled (%#)", async ({ images }) => {
-    const output = join(directory, "images.pdf");
-    await writeFile(output, "existing");
-    await expect(assemblePdf(images, output, "Sample")).rejects.toThrow();
-    expect(await readFile(output, "utf8")).toBe("existing");
+    { width: 700, withClip: true },
+    { width: 751.5, withClip: false },
+  ])(
+    "rejects unknown or mismatched Quartz page boundaries ($width, $withClip)",
+    async ({ width, withClip }) => {
+      const file = await quartzFixture(width, withClip);
+      const before = await readFile(file);
+      await expect(
+        normalizePrintedPdf(file, { width: 1002, height: 1335 }, "Sample"),
+      ).rejects.toThrow("边界");
+      expect(await readFile(file)).toEqual(before);
+    },
+  );
+
+  it("retains ordinary native PDF dimensions", async () => {
+    const file = await fixture();
+    await normalizePrintedPdf(file, { width: 800, height: 800 / 0.75 }, "Sample");
+    expect((await PDFDocument.load(await readFile(file))).getPage(0).getSize()).toEqual({
+      width: 600,
+      height: 800,
+    });
+  });
+
+  it("rejects ordinary PDFs printed at the wrong paper size", async () => {
+    const file = await fixture();
+    const before = await readFile(file);
+    await expect(
+      normalizePrintedPdf(file, { width: 1002, height: 1335 }, "Sample"),
+    ).rejects.toThrow("纸张尺寸");
+    expect(await readFile(file)).toEqual(before);
+  });
+
+  it("waits for a complete and stable browser output", async () => {
+    await expect(waitForPdf(await fixture(), 300, 2)).resolves.toBeUndefined();
+  });
+
+  it.each(["missing", "empty", "truncated"])("times out on %s browser output", async (kind) => {
+    const file = join(directory, "incomplete.pdf");
+    if (kind !== "missing") await writeFile(file, kind === "empty" ? "" : "%PDF-1.7\npartial");
+    await expect(waitForPdf(file, 25, 2)).rejects.toThrow("未完成写入");
   });
 });
 

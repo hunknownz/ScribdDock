@@ -96,6 +96,12 @@ export const LOAD_DOCUMENT_FONTS_SCRIPT = `mw:async () => {
   }
 }`;
 
+export const PRINT_DOCUMENT_SCRIPT = `mw:() => {
+  window.scrollTo(0, 0);
+  window.print();
+  return true;
+}`;
+
 export const PREPARE_EXPORT_SCRIPT = `mw:({pageCount}) => {
   const manager = window.docManager;
   const pages = Object.values(manager.pages || {}).filter(Boolean).sort((a, b) => a.pageNum - b.pageNum);

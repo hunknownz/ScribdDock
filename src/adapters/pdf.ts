@@ -1,30 +1,94 @@
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { readFile, rename, stat, writeFile } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import { decodePDFRawStream, PDFArray, PDFDocument, PDFRawStream, PDFStream } from "pdf-lib";
 import { DownloaderError, errorMessage } from "../errors.js";
 
-export async function assemblePdf(
-  images: readonly Uint8Array[],
-  path: string,
-  title: string,
-): Promise<void> {
-  if (!images.length) throw new DownloaderError("PDF: 没有可导出的页面");
-  const document = await PDFDocument.create();
-  document.setTitle(title);
-  document.setCreator("ScribdDock");
-  for (const image of images) {
-    const embedded = await document.embedPng(image);
-    const width = embedded.width * 0.75;
-    const height = embedded.height * 0.75;
-    const page = document.addPage([width, height]);
-    page.drawImage(embedded, { x: 0, y: 0, width, height });
-  }
-  await writeFile(path, await document.save());
+export interface PrintedLayout {
+  /** CSS pixels, before converting to PDF points. */
+  readonly width: number;
+  readonly height: number;
 }
 
-function hasDrawingOperations(stream: PDFStream): boolean {
+function decodedContents(stream: PDFStream): string {
   const bytes =
     stream instanceof PDFRawStream ? decodePDFRawStream(stream).decode() : stream.getContents();
-  return Buffer.from(bytes).toString("latin1").trim().length > 0;
+  return Buffer.from(bytes).toString("latin1");
+}
+
+function contentStreams(contents: PDFStream | PDFArray | undefined): PDFStream[] {
+  if (contents instanceof PDFStream) return [contents];
+  if (contents instanceof PDFArray) {
+    return Array.from({ length: contents.size() }, (_, i) => contents.lookup(i, PDFStream));
+  }
+  return [];
+}
+
+export async function waitForPdf(path: string, timeoutMs = 60_000, pollMs = 250): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  let previousSize = -1;
+  let stableSamples = 0;
+  while (Date.now() < deadline) {
+    try {
+      const { size } = await stat(path);
+      stableSamples = size > 0 && size === previousSize ? stableSamples + 1 : 0;
+      previousSize = size;
+      if (stableSamples >= 2) {
+        const bytes = await readFile(path);
+        if (bytes.subarray(-1024).includes(Buffer.from("%%EOF"))) return;
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    await delay(pollMs);
+  }
+  throw new DownloaderError("print: PDF 未完成写入，已中止导出");
+}
+
+const number = "([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))";
+const quartzClip = new RegExp(
+  `^(?:\\s*(?:q|Q)\\b)*\\s*${number}\\s+${number}\\s+${number}\\s+${number}\\s+re\\s+W\\*?\\s+n\\b`,
+);
+
+export async function normalizePrintedPdf(
+  path: string,
+  layout: PrintedLayout,
+  title: string,
+): Promise<void> {
+  const width = layout.width * 0.75;
+  const height = layout.height * 0.75;
+  if (![width, height].every((value) => Number.isFinite(value) && value > 0))
+    throw new DownloaderError("PDF: 打印布局尺寸无效");
+  const document = await PDFDocument.load(await readFile(path), { updateMetadata: false });
+  const quartz = document.getProducer()?.includes("Quartz PDFContext");
+  for (const [index, page] of document.getPages().entries()) {
+    if (quartz) {
+      // Quartz can emit the correct CSS page clipping rectangle while retaining a Letter
+      // MediaBox. Recover only the leading page clip, and require it to match the DOM layout.
+      // This keeps native text, fonts and vectors instead of replacing pages with screenshots.
+      const stream = contentStreams(page.node.Contents())[0];
+      const match = stream && quartzClip.exec(decodedContents(stream).slice(0, 4096));
+      if (!match) throw new DownloaderError(`PDF: 第 ${index + 1} 页无法识别 Quartz 页面边界`);
+      const [x, y, clipWidth, clipHeight] = match.slice(1).map(Number) as [
+        number,
+        number,
+        number,
+        number,
+      ];
+      if (Math.abs(clipWidth - width) > 0.5 || Math.abs(clipHeight - height) > 0.5)
+        throw new DownloaderError(`PDF: 第 ${index + 1} 页打印边界与阅读器布局不匹配`);
+      page.translateContent(-x, -y);
+      page.setMediaBox(0, 0, clipWidth, clipHeight);
+      page.setCropBox(0, 0, clipWidth, clipHeight);
+    } else if (
+      Math.abs(page.getWidth() - width) > 0.5 ||
+      Math.abs(page.getHeight() - height) > 0.5
+    ) {
+      throw new DownloaderError(`PDF: 第 ${index + 1} 页打印纸张尺寸与阅读器布局不匹配`);
+    }
+  }
+  document.setTitle(title);
+  document.setCreator("ScribdDock");
+  await writeFile(path, await document.save());
 }
 
 export async function validatePdf(path: string, expectedPages: number): Promise<void> {
@@ -36,13 +100,8 @@ export async function validatePdf(path: string, expectedPages: number): Promise<
     if (pages.length !== expectedPages)
       throw new DownloaderError(`PDF: 预期 ${expectedPages} 页，实际 ${pages.length} 页`);
     for (const [index, page] of pages.entries()) {
-      const contents = page.node.Contents();
-      const streams: PDFStream[] = [];
-      if (contents instanceof PDFStream) streams.push(contents);
-      else if (contents instanceof PDFArray) {
-        for (let i = 0; i < contents.size(); i++) streams.push(contents.lookup(i, PDFStream));
-      }
-      if (!streams.some(hasDrawingOperations))
+      const streams = contentStreams(page.node.Contents());
+      if (!streams.some((stream) => decodedContents(stream).trim().length > 0))
         throw new DownloaderError(`PDF: 第 ${index + 1} 页没有内容流`);
     }
   } catch (error) {

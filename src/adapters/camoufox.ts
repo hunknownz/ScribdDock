@@ -7,6 +7,38 @@ export function profileDirectory(env: NodeJS.ProcessEnv = process.env): string {
   return resolve(configured === "~" ? homedir() : configured.replace(/^~\//, `${homedir()}/`));
 }
 
+export function printPreferences(path: string): Record<string, boolean | string> {
+  const filename = resolve(path);
+  const preferences: Record<string, boolean | string> = {
+    "print.always_print_silent": true,
+    print_printer: "Mozilla Save to PDF",
+    "print.print_to_file": true,
+    "print.print_to_filename": filename,
+    "print.save_as_pdf.use_page_rule_size_as_paper_size.enabled": true,
+  };
+  const printer = "print.printer_Mozilla_Save_to_PDF";
+  for (const [key, value] of Object.entries({
+    print_to_file: true,
+    print_to_filename: filename,
+    print_bgcolor: true,
+    print_bgimages: true,
+    print_margin_top: "0",
+    print_margin_bottom: "0",
+    print_margin_left: "0",
+    print_margin_right: "0",
+    print_headerleft: "",
+    print_headercenter: "",
+    print_headerright: "",
+    print_footerleft: "",
+    print_footercenter: "",
+    print_footerright: "",
+    print_shrink_to_fit: true,
+    print_scaling: "1",
+  }))
+    preferences[`${printer}.${key}`] = value;
+  return preferences;
+}
+
 export class CamoufoxProvider implements BrowserProvider {
   async open(options: BrowserOptions): Promise<BrowserSession> {
     const { Camoufox } = await import("camoufox");
@@ -18,6 +50,7 @@ export class CamoufoxProvider implements BrowserProvider {
       main_world_eval: true,
       enable_cache: true,
       locale: "en-US",
+      ...(options.printPath ? { firefox_user_prefs: printPreferences(options.printPath) } : {}),
       ...(options.headless ? {} : { window: [1280, 900] as [number, number] }),
     } as const;
     if (options.profile) {

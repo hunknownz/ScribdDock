@@ -13,6 +13,7 @@ import {
   LOAD_DOCUMENT_FONTS_SCRIPT,
   MANAGER_STATE_SCRIPT,
   PREPARE_EXPORT_SCRIPT,
+  PRINT_DOCUMENT_SCRIPT,
 } from "../src/adapters/scribd/scripts.js";
 
 let directory: string;
@@ -24,19 +25,9 @@ afterEach(async () => {
 });
 
 function browserFixture({ status = 200, validPdf = true } = {}) {
+  let printPath: string | undefined;
   const page = {
     on: vi.fn(),
-    locator: vi.fn(() => ({
-      nth: () => ({
-        screenshot: async () =>
-          validPdf
-            ? Buffer.from(
-                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO7+NocAAAAASUVORK5CYII=",
-                "base64",
-              )
-            : Buffer.from("invalid PNG"),
-      }),
-    })),
     goto: vi.fn(async () => ({ status: () => status })),
     evaluate: vi.fn(async (script: string) => {
       if (script === mainWorldCall(LOAD_DOCUMENT_FONTS_SCRIPT)) return { loaded: 1 };
@@ -45,13 +36,22 @@ function browserFixture({ status = 200, validPdf = true } = {}) {
       if (script === mainWorldCall(LOAD_BATCH_SCRIPT, { start: 0, end: 1 })) return [1];
       if (script === mainWorldCall(BATCH_READY_SCRIPT, { start: 0, end: 1 })) return true;
       if (script === mainWorldCall(PREPARE_EXPORT_SCRIPT, { pageCount: 1 }))
-        return { renderedPages: 1, layoutFailures: [] };
+        return { renderedPages: 1, width: 600, height: 800, layoutFailures: [] };
+      if (script === mainWorldCall(PRINT_DOCUMENT_SCRIPT)) {
+        if (!printPath) throw new Error("No print destination");
+        if (validPdf) {
+          const document = await PDFDocument.create();
+          document.addPage([450, 600]).drawText("Sample text", { x: 20, y: 550 });
+          await writeFile(printPath, await document.save());
+        } else await writeFile(printPath, "%PDF-1.7\ninvalid PDF\n%%EOF");
+      }
       return true;
     }),
   };
   const context = { pages: () => [page], newPage: vi.fn(async () => page as unknown as Page) };
   const close = vi.fn(async () => {});
-  const open = vi.fn(async (_options: BrowserOptions) => {
+  const open = vi.fn(async (options: BrowserOptions) => {
+    printPath = options.printPath;
     return { context: context as unknown as BrowserContext, close };
   });
   const provider: BrowserProvider = { open };
@@ -100,7 +100,8 @@ describe("Scribd adapter with a simulated browser", () => {
         progress,
       ),
     ).resolves.toBe(output);
-    expect(browser.open).toHaveBeenCalledWith({ headless: true });
+    expect(browser.open).toHaveBeenCalledWith({ headless: true, printPath: expect.any(String) });
+    expect(browser.page.evaluate).toHaveBeenCalledWith(mainWorldCall(PRINT_DOCUMENT_SCRIPT));
     expect(progress).toHaveBeenCalledWith(1, 1);
     expect((await PDFDocument.load(await readFile(output))).getPageCount()).toBe(1);
     expect(await readdir(directory)).toEqual(["output.pdf"]);
@@ -118,6 +119,7 @@ describe("Scribd adapter with a simulated browser", () => {
     expect(browser.open).toHaveBeenCalledWith({
       headless: true,
       profile,
+      printPath: expect.any(String),
     });
   });
 

@@ -174,14 +174,19 @@ export async function renderDocument(
   return info;
 }
 
-export async function prepareExportDom(page: Page, info: DocumentInfo): Promise<void> {
-  const result: { renderedPages: number; layoutFailures?: string[] } = await evaluateMainWorld(
-    page,
-    PREPARE_EXPORT_SCRIPT,
-    { pageCount: info.pageCount },
-  );
+export interface ExportLayout {
+  readonly width: number;
+  readonly height: number;
+}
+
+export async function prepareExportDom(page: Page, info: DocumentInfo): Promise<ExportLayout> {
+  const result: ExportLayout & { renderedPages: number; layoutFailures?: string[] } =
+    await evaluateMainWorld(page, PREPARE_EXPORT_SCRIPT, { pageCount: info.pageCount });
   if (result.renderedPages !== info.pageCount)
     throw new DownloaderError("export DOM: 页面数量不匹配");
   if (result.layoutFailures?.length)
     throw new DownloaderError(`export DOM: ${result.layoutFailures[0]}`);
+  if (![result.width, result.height].every((value) => Number.isFinite(value) && value > 0))
+    throw new DownloaderError("export DOM: 页面尺寸无效");
+  return { width: result.width, height: result.height };
 }

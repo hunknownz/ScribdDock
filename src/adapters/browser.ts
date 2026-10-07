@@ -8,6 +8,7 @@ export interface BrowserSession {
 export interface BrowserOptions {
   readonly headless: boolean;
   readonly profile?: string;
+  readonly printPath?: string;
 }
 
 export interface BrowserProvider {

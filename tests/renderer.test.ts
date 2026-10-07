@@ -10,6 +10,7 @@ import {
   LOAD_DOCUMENT_FONTS_SCRIPT,
   MANAGER_STATE_SCRIPT,
   PREPARE_EXPORT_SCRIPT,
+  PRINT_DOCUMENT_SCRIPT,
 } from "../src/adapters/scribd/scripts.js";
 import { defaultOutputFilename, sanitizeFilename } from "../src/filenames.js";
 
@@ -84,6 +85,7 @@ describe("reader contracts", () => {
     LOAD_DOCUMENT_FONTS_SCRIPT,
     BATCH_READY_SCRIPT,
     PREPARE_EXPORT_SCRIPT,
+    PRINT_DOCUMENT_SCRIPT,
   ])("ships syntactically valid main-world scripts", (script) => {
     expect(script.startsWith("mw:")).toBe(true);
     expect(() => new Function(`return (${script.slice(3)});`)).not.toThrow();

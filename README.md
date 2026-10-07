@@ -69,13 +69,13 @@ node dist/cli.js download "https://www.scribd.com/document/990798737/AAGnet" --g
 
 ## PDF 的含义
 
-结果由 Camoufox 加载 Scribd 阅读器，逐页截取无损 PNG，再在本地组装 PDF。当前输出为图像型 PDF，文字不能直接选择、复制或搜索；不保证与上传原文件相同。实现依赖平台私有接口，网页变化可能导致失败。
+结果由 Camoufox 加载 Scribd 阅读器，经 Firefox 原生打印导出，保留网页原有的文本层、字体和矢量绘制。网页中原本可选的文字可以在 PDF 中选择、复制或搜索；扫描图片不会自动变成可选文字，本项目不做 OCR。结果不保证与上传原文件相同。实现依赖平台私有接口，网页变化可能导致失败。
 
 当前检查页面数量和尺寸、页面加载、字体与图片请求、导出布局、PDF 页数以及非空内容流。这些检查不能证明视觉完整性，下载后仍需检查每页。有登录、订阅、验证码或 DRM 限制时遵守平台授权，不把预览视为完整文档。
 
 文档专用字体从阅读器提供的清单加载并注册，避免使用替代字体造成文字重叠。字体加载有超时限制，失败会中止导出。
 
-阅读器内容超过标称纸张尺寸时，截图区域会扩展以容纳内容。纸张尺寸可能与原文件不同；扩展后仍发生溢出会报错。
+阅读器内容超过标称纸张尺寸时，导出区域会扩展以容纳内容。纸张尺寸可能与原文件不同；扩展后仍发生溢出会报错。macOS Quartz 的 PDF 页框可能与绘制区域不一致；程序只在绘制边界与阅读器布局匹配时修正页框，避免正文被裁切。详见 [PDF 导出与验证](docs/PDF_EXPORT.md)。
 
 ## 开发与验证
 
@@ -90,4 +90,4 @@ pnpm build
 
 安装内核后，可以运行 `pnpm test:browser` 检查本地 Camoufox 的脚本调用和导出布局；该测试使用合成页面，不访问 Scribd。
 
-应用契约位于 `src/domain.ts`、`ports.ts`、`service.ts`；集成实现在 `adapters/`；`composition.ts` 绑定具体来源。参见 [来源契约](docs/SOURCE_CONTRACT.md)、[路线图](docs/ROADMAP.md) 和 [开发约定](AGENTS.md) 和 [来源说明](docs/PROVENANCE.md)。
+应用契约位于 `src/domain.ts`、`ports.ts`、`service.ts`；集成实现在 `adapters/`；`composition.ts` 绑定具体来源。参见 [来源契约](docs/SOURCE_CONTRACT.md)、[路线图](docs/ROADMAP.md) 、[开发约定](AGENTS.md) 和 [来源说明](docs/PROVENANCE.md)。

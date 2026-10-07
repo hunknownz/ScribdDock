@@ -9,8 +9,15 @@ import { defaultOutputFilename } from "../../filenames.js";
 import type { ProgressCallback, SourceAdapter } from "../../ports.js";
 import type { BrowserProvider } from "../browser.js";
 import { CamoufoxProvider, profileDirectory } from "../camoufox.js";
-import { assemblePdf, finalizePdf } from "../pdf.js";
-import { parseDocumentUrl, prepareExportDom, renderDocument } from "./renderer.js";
+import { finalizePdf, normalizePrintedPdf, waitForPdf } from "../pdf.js";
+import { evaluateMainWorld } from "./evaluate.js";
+import {
+  type ExportLayout,
+  parseDocumentUrl,
+  prepareExportDom,
+  renderDocument,
+} from "./renderer.js";
+import { PRINT_DOCUMENT_SCRIPT } from "./scripts.js";
 
 export interface ScribdOptions {
   readonly profile?: string;
@@ -79,30 +86,26 @@ export class ScribdAdapter implements SourceAdapter {
       if (!request.guest) await this.prepareProfile();
       const session = await this.browsers.open({
         headless: true,
+        printPath: partial,
         ...(request.guest ? {} : { profile: this.profile }),
       });
-      let completion: { output: string; pageCount: number } | undefined;
+      let completion:
+        | { output: string; pageCount: number; title: string; layout: ExportLayout }
+        | undefined;
       try {
         const page = await session.context.newPage();
         const info = await renderDocument(page, ref, progress);
         const output =
           requestedOutput ?? resolve(baseDir, defaultOutputFilename(info.title, info.documentId));
-        await prepareExportDom(page, info);
-        const pages = page.locator("#scribddock-pages > *");
-        const images: Uint8Array[] = [];
-        for (let i = 0; i < info.pageCount; i++) {
-          images.push(
-            await pages
-              .nth(i)
-              .screenshot({ animations: "disabled", caret: "hide", scale: "css", timeout: 45_000 }),
-          );
-        }
-        await assemblePdf(images, partial, info.title);
-        completion = { output, pageCount: info.pageCount };
+        const layout = await prepareExportDom(page, info);
+        await evaluateMainWorld(page, PRINT_DOCUMENT_SCRIPT);
+        await waitForPdf(partial);
+        completion = { output, pageCount: info.pageCount, title: info.title, layout };
       } finally {
         await session.close();
       }
       if (!completion) throw new DownloaderError("PDF: 没有完成的文档");
+      await normalizePrintedPdf(partial, completion.layout, completion.title);
       await finalizePdf(partial, completion.output, completion.pageCount);
       return completion.output;
     } catch (error) {
