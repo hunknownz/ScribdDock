@@ -90,7 +90,7 @@ pnpm test
 pnpm build
 ```
 
-普通测试不联网、不启动浏览器，在 Linux、Windows CI 中运行。需要明确执行真实下载验证时运行 `pnpm test:live`；可用 `SCRIBD_TEST_URL` 提供自己有权下载的样例。真实测试创建并清理临时 PDF，不包含人工视觉审核。
+普通测试不访问外部网络、不启动浏览器，在 Linux、Windows CI 中运行。需要明确执行真实下载验证时运行 `pnpm test:live`；可用 `SCRIBD_TEST_URL` 提供自己有权下载的样例。真实测试创建并清理临时 PDF，不包含人工视觉审核。
 
 安装内核后，可以运行 `pnpm test:browser` 检查本地 Camoufox 的脚本调用和导出布局；该测试使用合成页面，不访问 Scribd。
 

@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { DownloaderError, errorMessage } from "../errors.js";
 import type { BrowserOptions, BrowserProvider, BrowserSession } from "./browser.js";
+import { printMarionettePdf, reserveMarionettePort } from "./marionette.js";
 import { expandHomePath } from "./paths.js";
 
 export function profileDirectory(env: NodeJS.ProcessEnv = process.env): string {
@@ -58,13 +59,28 @@ export class CamoufoxProvider implements BrowserProvider {
     const { Camoufox } = await import("camoufox");
     const os =
       process.platform === "darwin" ? "macos" : process.platform === "win32" ? "windows" : "linux";
+    const port =
+      process.platform === "win32" && options.printPath ? await reserveMarionettePort() : undefined;
+    const printPdf =
+      port && options.printPath
+        ? (page: import("playwright-core").Page, layout: { width: number; height: number }) =>
+            printMarionettePdf(port, options.printPath as string, page, layout)
+        : undefined;
     const settings = {
       os,
       headless: options.headless,
       main_world_eval: true,
       enable_cache: true,
       locale: "en-US",
-      ...(options.printPath ? { firefox_user_prefs: printPreferences(options.printPath) } : {}),
+      ...(options.printPath
+        ? {
+            firefox_user_prefs: {
+              ...printPreferences(options.printPath),
+              ...(port ? { "marionette.port": port } : {}),
+            },
+          }
+        : {}),
+      ...(port ? { args: ["--marionette"] } : {}),
       ...(options.headless ? {} : { window: [1280, 900] as [number, number] }),
     } as const;
     if (options.profile) {
@@ -73,12 +89,12 @@ export class CamoufoxProvider implements BrowserProvider {
         persistent_context: true,
         user_data_dir: options.profile,
       });
-      return { context, close: () => context.close() };
+      return { context, ...(printPdf ? { printPdf } : {}), close: () => context.close() };
     }
     const browser = await Camoufox(settings);
     try {
       const context = await browser.newContext({ viewport: null });
-      return { context, close: () => browser.close() };
+      return { context, ...(printPdf ? { printPdf } : {}), close: () => browser.close() };
     } catch (error) {
       await browser.close();
       throw error;

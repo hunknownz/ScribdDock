@@ -1,11 +1,13 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Camoufox } from "camoufox";
 import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import type { Page } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { BrowserSession } from "../src/adapters/browser.js";
 import { CamoufoxProvider } from "../src/adapters/camoufox.js";
+import { printMarionettePdf, reserveMarionettePort } from "../src/adapters/marionette.js";
 import { normalizePrintedPdf, validatePdf, waitForPdf } from "../src/adapters/pdf.js";
 import { evaluateMainWorld } from "../src/adapters/scribd/evaluate.js";
 import { prepareExportDom } from "../src/adapters/scribd/renderer.js";
@@ -80,6 +82,54 @@ describe.skipIf(process.env.SCRIBD_BROWSER !== "1")("local Camoufox integration"
 });
 
 it.skipIf(process.env.SCRIBD_BROWSER !== "1")(
+  "prints the intended tab through Firefox WebDriver with native fonts",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "scribddock-webdriver-print-"));
+    try {
+      const port = await reserveMarionettePort();
+      const browser = await Camoufox({
+        os:
+          process.platform === "darwin"
+            ? "macos"
+            : process.platform === "win32"
+              ? "windows"
+              : "linux",
+        headless: true,
+        main_world_eval: true,
+        locale: "en-US",
+        args: ["--marionette"],
+        firefox_user_prefs: { "marionette.port": port },
+      });
+      const output = join(directory, "native.pdf");
+      try {
+        const context = await browser.newContext({ viewport: null });
+        const other = await context.newPage();
+        await other.setContent("Unrelated tab");
+        const page = await context.newPage();
+        await page.setContent(
+          "<style>@page{size:840px 600px;margin:0}body{margin:0}</style><div>Native target text</div>",
+        );
+        await printMarionettePdf(port, output, page, { width: 840, height: 600 });
+        await waitForPdf(output);
+      } finally {
+        await browser.close();
+      }
+      // This tests explicit WebDriver paper geometry directly. Quartz recovery
+      // belongs to the macOS window.print() path, tested separately below.
+      await validatePdf(output, 1);
+      const pdf = await PDFDocument.load(await readFile(output));
+      expect(pdf.getPage(0).getSize()).toEqual({ width: 630, height: 450 });
+      expect(
+        pdf.getPage(0).node.Resources()?.lookupMaybe(PDFName.of("Font"), PDFDict)?.keys().length,
+      ).toBeGreaterThan(0);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+  120_000,
+);
+
+it.skipIf(process.env.SCRIBD_BROWSER !== "1")(
   "persists a synthetic session across restarts in a Unicode profile path",
   async () => {
     const directory = await mkdtemp(join(tmpdir(), "scribddock-profile-"));
@@ -149,7 +199,8 @@ it.skipIf(process.env.SCRIBD_BROWSER !== "1")(
             width,
             height,
           });
-          await evaluateMainWorld(page, PRINT_DOCUMENT_SCRIPT);
+          if (session.printPdf) await session.printPdf(page, layout);
+          else await evaluateMainWorld(page, PRINT_DOCUMENT_SCRIPT);
           await waitForPdf(output);
           expect(layout).toEqual({ width, height });
         } finally {

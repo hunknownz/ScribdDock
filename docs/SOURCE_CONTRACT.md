@@ -12,6 +12,8 @@
 
 集成层的 `BrowserProvider` 接收 headless、可选 profile 和临时打印输出路径，返回 `BrowserSession`，来源适配器负责关闭会话。Playwright 对象不进入核心应用层。
 
+`BrowserSession.printPdf` 为可选的原生 PDF 打印能力。Windows 的 Camoufox provider 在指定打印路径时通过本机 loopback Marionette 连接同一浏览器，明确选择 Firefox WebDriver PDF 后端；其他平台沿用 `window.print()`。选定后端失败直接中止，不自动换用另一后端或浏览器。PDF 响应经过文件完成、页数、纸张与内容流校验后才替换输出。
+
 默认 `CamoufoxProvider` 通过官方 camoufox TypeScript SDK 启动 Camoufox，使用与宿主一致的 OS、en-US locale 和主世界脚本执行。登录有界面并保存 profile，下载无界面；不自动回退到其他浏览器。浏览器使用官方 SDK 的平台缓存，profile 默认为 ~/.scribddock/profiles/scribd。
 
 Windows profile 默认为 `%USERPROFILE%\.scribddock\profiles\scribd`，继承所在目录的 NTFS 权限；POSIX 系统设置 `0700`。profile 和输出路径支持 `~/`、`~\` 主目录展开。自动文件名避开 Windows 保留名称；Windows 上显式指定保留文件名时在启动浏览器前失败。平台安装和验证范围见 [Windows 指南](WINDOWS.md)。

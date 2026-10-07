@@ -140,6 +140,30 @@ describe("Scribd adapter with a simulated browser", () => {
     });
   });
 
+  it("preserves output and does not retry window.print after native PDF failure", async () => {
+    const browser = browserFixture();
+    const output = join(directory, "output.pdf");
+    await writeFile(output, "existing");
+    const printPdf = vi.fn(async () => {
+      throw new Error("native PDF failure");
+    });
+    const provider: BrowserProvider = {
+      open: async (options) => ({ ...(await browser.open(options)), printPdf }),
+    };
+    await expect(
+      new ScribdAdapter(provider).download({
+        url: "https://scribd.com/document/123",
+        guest: true,
+        output,
+      }),
+    ).rejects.toThrow("native PDF failure");
+    expect(printPdf).toHaveBeenCalledWith(browser.page, { width: 600, height: 800 });
+    expect(browser.page.evaluate).not.toHaveBeenCalledWith(mainWorldCall(PRINT_DOCUMENT_SCRIPT));
+    expect(browser.close).toHaveBeenCalledOnce();
+    expect(await readFile(output, "utf8")).toBe("existing");
+    expect(await readdir(directory)).toEqual(["output.pdf"]);
+  });
+
   it("preserves an existing output and removes temporary files on validation failure", async () => {
     const browser = browserFixture({ validPdf: false });
     const output = join(directory, "output.pdf");

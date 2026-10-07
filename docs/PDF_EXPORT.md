@@ -2,9 +2,15 @@
 
 ## 当前实现
 
-Camoufox 加载完整阅读器页面和专用字体，经 Firefox 静默打印保留网页文本、嵌入字体和绘制内容。浏览器关闭成功后处理并校验临时 PDF，最后替换用户指定的输出文件。任何阶段失败都保留已有输出，不自动切换到截图。
+Camoufox 加载完整阅读器页面和专用字体，经 Firefox 原生打印保留网页文本、嵌入字体和绘制内容。浏览器关闭成功后处理并校验临时 PDF，最后替换用户指定的输出文件。任何阶段失败都保留已有输出，不自动切换到截图。
 
 源页面只有扫描图片时，导出的 PDF 同样没有文本层；不进行 OCR。阅读器重建的 PDF 与上传原文件不保证相同，文字的断行、复制顺序和间距取决于阅读器本身。
+
+## Windows 原生 PDF 后端
+
+Windows runner 实测发现 `window.print()` 配合原项目的偏好设置没有生成 PDF。Firefox 的静默打印流程没有像打印面板一样明确设置 PDF 输出格式，Windows 后端因此不能把虚拟打印机名称当作原生 PDF 后端。依据 [Firefox Windows 后端](https://github.com/mozilla/gecko-dev/blob/master/widget/windows/nsDeviceContextSpecWin.cpp) 和 [PDF 打印实现](https://github.com/mozilla/gecko-dev/blob/master/remote/shared/PDF.sys.mjs)，Windows 改用同一 Camoufox 内的 WebDriver 原生 PDF 打印。
+
+浏览器由官方 TS SDK 启动和控制；Marionette 仅作为 Windows 的本机打印连接。按唯一 DOM 标记找到目标标签页，显式传入阅读器纸张尺寸、零边距、背景和缩放设置，保存返回的 PDF 后继续原有校验。连接、命令、PDF 响应大小都有上限；失败不回退。平台验证结果见 [Windows 指南](WINDOWS.md)。
 
 ## macOS 裁切问题
 

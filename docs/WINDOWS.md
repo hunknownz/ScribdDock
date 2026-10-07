@@ -51,11 +51,13 @@ pnpm dev login
 
 PDF 仍由 Camoufox / Firefox 原生打印生成，经过页数、纸张尺寸和内容流校验后才替换输出。如果目标 PDF 被阅读器独占锁定，先关闭阅读器再重试；替换失败会保留旧文件并清理临时文件，不退回截图导出。
 
+Windows 使用同一个 Camoufox 的 WebDriver 原生打印接口，明确选择 PDF 输出格式和页面尺寸。Marionette 只监听本机 loopback；不需要额外安装 PDF 打印机，不通过网络服务生成 PDF。macOS 保持原有 `window.print()` 流程。后端在启动时按平台确定，失败不切换后端。
+
 ## 验证范围
 
 默认 CI 在 Linux 和 Windows 上运行类型检查、格式检查、离线测试及构建，不登录网站。独立的 `Windows smoke` 工作流按需安装真实 Camoufox，检查主世界脚本、打印布局、不同纸张尺寸、字体资源，以及含中文和空格的 profile 目录能否在重启后恢复合成会话；选择公开样例下载时还检查五页文档及每页文字绘制指令。
 
-本地合成浏览器测试已在 macOS 通过。Windows runner 验证尚待执行；Windows 人工账号登录和逐页视觉效果尚未验收。文字绘制指令检查不能代替实际文字提取、复制和完整视觉审核。
+本地六项合成浏览器测试已在 macOS 通过，包含原生 WebDriver 打印。Windows runner 已通过启动、DOM 布局和合成 profile 重启恢复；原来的静默打印没有生成 PDF，现正验证明确选择 PDF 后端的修复。Windows 人工账号登录和逐页视觉效果尚未验收。文字绘制指令检查不能代替实际文字提取、复制和完整视觉审核。
 
 ```powershell
 pnpm test:browser

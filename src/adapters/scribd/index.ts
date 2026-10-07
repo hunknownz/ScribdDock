@@ -109,7 +109,8 @@ export class ScribdAdapter implements SourceAdapter {
         const output =
           requestedOutput ?? resolve(baseDir, defaultOutputFilename(info.title, info.documentId));
         const layout = await prepareExportDom(page, info);
-        await evaluateMainWorld(page, PRINT_DOCUMENT_SCRIPT);
+        if (session.printPdf) await session.printPdf(page, layout);
+        else await evaluateMainWorld(page, PRINT_DOCUMENT_SCRIPT);
         await waitForPdf(partial);
         completion = { output, pageCount: info.pageCount, title: info.title, layout };
       } finally {
