@@ -59,7 +59,9 @@ it.skipIf(process.env.SCRIBD_LIVE !== "1")(
             )
             .join("\n");
           expect(text).toMatch(/\bBT\b/);
-          expect(text).toMatch(/\s(?:Tj|TJ)\b/);
+          // PDF operand delimiters can touch the following operator without
+          // whitespace; Cairo emits both string)Tj and array]TJ forms.
+          expect(text).toMatch(/[\s\])>](?:Tj|TJ)\b/);
         }
       }
     } finally {
