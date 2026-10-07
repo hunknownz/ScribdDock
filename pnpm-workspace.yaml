@@ -1,0 +1,6 @@
+packages:
+  - .
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - camoufox@0.5.8
