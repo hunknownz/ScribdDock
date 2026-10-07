@@ -80,6 +80,46 @@ describe.skipIf(process.env.SCRIBD_BROWSER !== "1")("local Camoufox integration"
 });
 
 it.skipIf(process.env.SCRIBD_BROWSER !== "1")(
+  "persists a synthetic session across restarts in a Unicode profile path",
+  async () => {
+    const directory = await mkdtemp(join(tmpdir(), "scribddock-profile-"));
+    const profile = join(directory, "用户 profile");
+    const provider = new CamoufoxProvider();
+    try {
+      const first = await provider.open({ headless: true, profile });
+      try {
+        await first.context.addCookies([
+          {
+            name: "profile-check",
+            value: "synthetic-session",
+            domain: "example.test",
+            path: "/",
+            expires: Math.floor(Date.now() / 1000) + 3600,
+            httpOnly: true,
+            secure: true,
+            sameSite: "Lax",
+          },
+        ]);
+      } finally {
+        await first.close();
+      }
+      const reopened = await provider.open({ headless: true, profile });
+      try {
+        const cookies = await reopened.context.cookies("https://example.test/");
+        expect(cookies.find((cookie) => cookie.name === "profile-check")?.value).toBe(
+          "synthetic-session",
+        );
+      } finally {
+        await reopened.close();
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+  60_000,
+);
+
+it.skipIf(process.env.SCRIBD_BROWSER !== "1")(
   "prints successive paper sizes with native fonts and correct page boxes",
   async () => {
     const directory = await mkdtemp(join(tmpdir(), "scribddock-native-print-"));
