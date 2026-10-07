@@ -84,6 +84,7 @@ export async function normalizePrintedPdf(
   path: string,
   layout: PrintedLayout,
   title: string,
+  paperRounding: "exact" | "ceil" = "exact",
 ): Promise<void> {
   const width = layout.width * 0.75;
   const height = layout.height * 0.75;
@@ -129,6 +130,22 @@ export async function normalizePrintedPdf(
         for (let i = 0; i < annotations.size(); i++)
           translateAnnotationPoints(annotations.lookup(i, PDFDict), x, y);
       page.scaleAnnotations(scale, scale);
+      page.setMediaBox(0, 0, width, height);
+      page.setCropBox(0, 0, width, height);
+    } else if (paperRounding === "ceil") {
+      const actualWidth = page.getWidth();
+      const actualHeight = page.getHeight();
+      if (
+        Math.abs(actualWidth - Math.ceil(width)) > 0.01 ||
+        Math.abs(actualHeight - Math.ceil(height)) > 0.01
+      )
+        throw new DownloaderError(`PDF: 第 ${index + 1} 页原生纸张尺寸不符合整数取整规则`);
+      const offset = actualHeight - height;
+      page.translateContent(0, -offset);
+      const annotations = page.node.Annots();
+      if (annotations)
+        for (let i = 0; i < annotations.size(); i++)
+          translateAnnotationPoints(annotations.lookup(i, PDFDict), 0, offset);
       page.setMediaBox(0, 0, width, height);
       page.setCropBox(0, 0, width, height);
     } else if (

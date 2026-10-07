@@ -63,8 +63,13 @@ export class CamoufoxProvider implements BrowserProvider {
       process.platform === "win32" && options.printPath ? await reserveMarionettePort() : undefined;
     const printPdf =
       port && options.printPath
-        ? (page: import("playwright-core").Page, layout: { width: number; height: number }) =>
-            printMarionettePdf(port, options.printPath as string, page, layout)
+        ? async (
+            page: import("playwright-core").Page,
+            layout: { width: number; height: number },
+          ) => {
+            await printMarionettePdf(port, options.printPath as string, page, layout);
+            return { paperRounding: "ceil" as const };
+          }
         : undefined;
     const settings = {
       os,

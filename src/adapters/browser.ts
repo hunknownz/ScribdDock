@@ -1,8 +1,13 @@
 import type { BrowserContext, Page } from "playwright-core";
 
+export type PaperRounding = "exact" | "ceil";
+
 export interface BrowserSession {
   readonly context: BrowserContext;
-  printPdf?(page: Page, layout: { width: number; height: number }): Promise<void>;
+  printPdf?(
+    page: Page,
+    layout: { width: number; height: number },
+  ): Promise<{ paperRounding: PaperRounding }>;
   close(): Promise<void>;
 }
 

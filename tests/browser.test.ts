@@ -5,7 +5,7 @@ import { Camoufox } from "camoufox";
 import { PDFDict, PDFDocument, PDFName } from "pdf-lib";
 import type { Page } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { BrowserSession } from "../src/adapters/browser.js";
+import type { BrowserSession, PaperRounding } from "../src/adapters/browser.js";
 import { CamoufoxProvider } from "../src/adapters/camoufox.js";
 import { printMarionettePdf, reserveMarionettePort } from "../src/adapters/marionette.js";
 import { normalizePrintedPdf, validatePdf, waitForPdf } from "../src/adapters/pdf.js";
@@ -180,6 +180,7 @@ it.skipIf(process.env.SCRIBD_BROWSER !== "1")(
       ] as const) {
         const output = join(directory, `${width}-${height}.pdf`);
         const session = await new CamoufoxProvider().open({ headless: true, printPath: output });
+        let paperRounding: PaperRounding = "exact";
         try {
           const page = await session.context.newPage();
           await page.setContent(
@@ -199,14 +200,14 @@ it.skipIf(process.env.SCRIBD_BROWSER !== "1")(
             width,
             height,
           });
-          if (session.printPdf) await session.printPdf(page, layout);
+          if (session.printPdf) ({ paperRounding } = await session.printPdf(page, layout));
           else await evaluateMainWorld(page, PRINT_DOCUMENT_SCRIPT);
           await waitForPdf(output);
           expect(layout).toEqual({ width, height });
         } finally {
           await session.close();
         }
-        await normalizePrintedPdf(output, { width, height }, "Native print");
+        await normalizePrintedPdf(output, { width, height }, "Native print", paperRounding);
         await validatePdf(output, 1);
         const pdf = await PDFDocument.load(await readFile(output));
         const page = pdf.getPage(0);

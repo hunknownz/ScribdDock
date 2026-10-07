@@ -13,7 +13,7 @@
 | stdout 只有输出路径，stderr 显示页数进度 | `src/cli.ts` | 原行为对照测试和真实命令 |
 | 标题清理、通用标题退回文档 ID | `src/filenames.ts`、`adapters/scribd/renderer.ts` | 原 Python 函数生成的标题样例 |
 | document/doc/embeds 链接及有效文档 ID | `adapters/scribd/renderer.ts` | 原输入样例与无效输入测试 |
-| 手动登录、持久 profile、权限 0700；guest 不使用 profile | `adapters/camoufox.ts`、`adapters/scribd/index.ts` | SDK 参数测试、已有目录权限收紧测试、真人登录和会话复用 |
+| 手动登录、持久 profile、POSIX 权限 0700；guest 不使用 profile | `adapters/camoufox.ts`、`adapters/scribd/index.ts` | SDK 参数测试、已有目录权限收紧测试、真人登录和会话复用 |
 | 主世界 docManager、注册数量与页尺寸检查 | `adapters/scribd/evaluate.ts`、`renderer.ts` | 执行上下文销毁重试、注册延迟、初始化超时及实际浏览器 |
 | 按八页批次加载，预加载页面仍等待字体并开启图片 | `adapters/scribd/scripts.ts` | 与参考脚本的语义对照、可执行加载顺序测试、20 页真实样例 |
 | 页面、图片、文档字体失败时中止；排除网页 UI 字体 | `adapters/scribd/renderer.ts` | 原资源分类固定样例、资源失败与敏感查询脱敏测试 |
@@ -63,6 +63,7 @@
 ## 保留的差异与限制
 
 - 全部应用代码为 TS；使用官方 TS Camoufox SDK，不调用 Python 下载器，不自动换用 Chromium。两种 SDK 的内核、默认视口和字体环境可能不同；可见页面布局需要实际比较。
+- Windows 在同一 Camoufox 中明确使用 WebDriver 原生 PDF 后端；原参考的 `window.print()` 设置在 Windows runner 没有生成 PDF。macOS 保持已有流程，失败不自动切换打印后端。Windows 独立文字对照使用 CI 专用 pypdf，应用运行不依赖 Python。
 - 项目名称、profile 路径、中文提示，以及 sources/inspect 命令属于 ScribdDock。旧 profile 仅能通过明确配置路径复用，不自动复制凭据。
 - 输入域名、端口和资源主机校验更严格；不复刻参考实现对相似域名的宽松处理。文件名也清理更多 Unicode 控制字符，并避开 Windows 保留名称。
 - 输出是阅读器重建 PDF，非上传原文件。扫描文档仍没有文本层，不添加 OCR，不退回截图。

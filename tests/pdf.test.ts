@@ -9,6 +9,7 @@ import {
   PDFDict,
   PDFDocument,
   PDFName,
+  PDFNumber,
   PDFRawStream,
   PDFString,
   popGraphicsState,
@@ -36,6 +37,58 @@ async function fixture(pages = 1, blank = false): Promise<string> {
   await writeFile(file, await document.save());
   return file;
 }
+
+describe("declared native whole-point paper rounding", () => {
+  it("removes only rounded paper padding and keeps native link coordinates aligned", async () => {
+    const document = await PDFDocument.create();
+    document.setProducer("cairo");
+    const page = document.addPage([563, 751]);
+    page.drawText("Native heading", { x: 20, y: 711 });
+    const link = document.context.register(
+      document.context.obj({
+        Type: "Annot",
+        Subtype: "Link",
+        Rect: [20, 731, 220, 741],
+        A: { S: "URI", URI: PDFString.of("https://example.com") },
+      }),
+    );
+    page.node.set(PDFName.of("Annots"), document.context.obj([link]));
+    const path = join(directory, "rounded.pdf");
+    await writeFile(path, await document.save());
+    await normalizePrintedPdf(path, { width: 750, height: 1000.5 }, "Rounded", "ceil");
+    const normalized = await PDFDocument.load(await readFile(path));
+    const result = normalized.getPage(0);
+    expect(result.getSize()).toEqual({ width: 562.5, height: 750.375 });
+    expect(result.getCropBox()).toEqual({ x: 0, y: 0, width: 562.5, height: 750.375 });
+    const annotation = result.node.Annots()?.lookup(0, PDFDict);
+    const rect = annotation?.lookup(PDFName.of("Rect"), PDFArray);
+    expect(Array.from({ length: 4 }, (_, i) => rect?.lookup(i, PDFNumber).asNumber())).toEqual([
+      20, 730.375, 220, 740.375,
+    ]);
+    expect(
+      annotation
+        ?.lookup(PDFName.of("A"), PDFDict)
+        .lookup(PDFName.of("URI"), PDFString)
+        .decodeText(),
+    ).toBe("https://example.com");
+    await validatePdf(path, 1);
+  });
+
+  it.each([
+    [562.5, 751],
+    [563, 750.375],
+    [564, 751],
+  ])("rejects paper %s x %s that does not match declared rounding", async (width, height) => {
+    const document = await PDFDocument.create();
+    const page = document.addPage([width as number, height as number]);
+    page.drawText("Content", { x: 20, y: 30 });
+    const path = join(directory, "wrong-rounded.pdf");
+    await writeFile(path, await document.save());
+    await expect(
+      normalizePrintedPdf(path, { width: 750, height: 1000.5 }, "Wrong", "ceil"),
+    ).rejects.toThrow("整数取整规则");
+  });
+});
 
 async function quartzFixture(width = 751.5, withClip = true, height = 1001.25): Promise<string> {
   const document = await PDFDocument.create();

@@ -1,0 +1,13 @@
+{
+  "source_url": "https://www.scribd.com/document/884183779/Sample-5-Page-PDF",
+  "reference_commit": "1ae93a753cdb56581d3cc7ffd5d674480519e682",
+  "captured_on": "2026-10-08",
+  "normalization": "NFKC; remove all whitespace",
+  "page_text_sha256": [
+    "414712630a9c7613e4bc557a77de17e4850a858d4ca311aba9eff8d8357f4349",
+    "2bb05575dfa9b00ee9368af2cf47f6c4b01ad9cb3372017d9deb52e872123a7c",
+    "8882e2f230fc388c05d66fa918b7247b34b4eff44059012e3657ea362647a69a",
+    "066077ce64c522818d4df4853c996e33e68891d9377176e0e369cf96e11ac1f9",
+    "99144eeb7c9973f5cb80ebe979d79fc43cfcc8cb46d904f6c872a332eb3349f3"
+  ]
+}

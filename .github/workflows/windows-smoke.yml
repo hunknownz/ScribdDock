@@ -31,3 +31,19 @@ jobs:
           SCRIBD_TEST_URL: https://www.scribd.com/document/884183779/Sample-5-Page-PDF
           SCRIBD_TEST_EXPECTED_PAGES: '5'
           SCRIBD_TEST_REQUIRE_TEXT: '1'
+      - if: ${{ inputs.live_download }}
+        name: Check compiled CLI and independently extract PDF text
+        run: |
+          pnpm build
+          if ($LASTEXITCODE -ne 0) { throw "Build failed" }
+          python -m pip install pypdf==6.10.0
+          if ($LASTEXITCODE -ne 0) { throw "PDF QA dependency installation failed" }
+          $outputPath = Join-Path $env:RUNNER_TEMP "scribddock-public-five-page.pdf"
+          try {
+            node dist/cli.js download "https://www.scribd.com/document/884183779/Sample-5-Page-PDF" --guest -o $outputPath
+            if ($LASTEXITCODE -ne 0) { throw "Compiled CLI download failed" }
+            python scripts/verify-public-pdf.py $outputPath
+            if ($LASTEXITCODE -ne 0) { throw "PDF text QA failed" }
+          } finally {
+            Remove-Item -LiteralPath $outputPath -Force -ErrorAction SilentlyContinue
+          }

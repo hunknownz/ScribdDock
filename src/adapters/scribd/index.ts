@@ -6,7 +6,7 @@ import type { DownloadRequest } from "../../domain.js";
 import { DownloaderError, errorMessage } from "../../errors.js";
 import { defaultOutputFilename, isWindowsReservedFilename } from "../../filenames.js";
 import type { ProgressCallback, SourceAdapter } from "../../ports.js";
-import type { BrowserProvider } from "../browser.js";
+import type { BrowserProvider, PaperRounding } from "../browser.js";
 import { CamoufoxProvider, profileDirectory } from "../camoufox.js";
 import { expandHomePath } from "../paths.js";
 import { finalizePdf, normalizePrintedPdf, waitForPdf } from "../pdf.js";
@@ -101,7 +101,13 @@ export class ScribdAdapter implements SourceAdapter {
         ...(request.guest ? {} : { profile: this.profile }),
       });
       let completion:
-        | { output: string; pageCount: number; title: string; layout: ExportLayout }
+        | {
+            output: string;
+            pageCount: number;
+            title: string;
+            layout: ExportLayout;
+            paperRounding: PaperRounding;
+          }
         | undefined;
       try {
         const page = await session.context.newPage();
@@ -109,22 +115,32 @@ export class ScribdAdapter implements SourceAdapter {
         const output =
           requestedOutput ?? resolve(baseDir, defaultOutputFilename(info.title, info.documentId));
         const layout = await prepareExportDom(page, info);
-        if (session.printPdf) await session.printPdf(page, layout);
+        let paperRounding: PaperRounding = "exact";
+        if (session.printPdf) ({ paperRounding } = await session.printPdf(page, layout));
         else await evaluateMainWorld(page, PRINT_DOCUMENT_SCRIPT);
         await waitForPdf(partial);
-        completion = { output, pageCount: info.pageCount, title: info.title, layout };
+        completion = {
+          output,
+          pageCount: info.pageCount,
+          title: info.title,
+          layout,
+          paperRounding,
+        };
       } finally {
         await session.close();
       }
       if (!completion) throw new DownloaderError("PDF: 没有完成的文档");
-      await normalizePrintedPdf(partial, completion.layout, completion.title).catch(
-        (error: unknown) => {
-          if (error instanceof DownloaderError) throw error;
-          throw new DownloaderError(`print: generated PDF is invalid (${errorMessage(error)})`, {
-            cause: error,
-          });
-        },
-      );
+      await normalizePrintedPdf(
+        partial,
+        completion.layout,
+        completion.title,
+        completion.paperRounding,
+      ).catch((error: unknown) => {
+        if (error instanceof DownloaderError) throw error;
+        throw new DownloaderError(`print: generated PDF is invalid (${errorMessage(error)})`, {
+          cause: error,
+        });
+      });
       await finalizePdf(partial, completion.output, completion.pageCount);
       return completion.output;
     } catch (error) {
