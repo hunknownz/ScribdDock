@@ -11,7 +11,7 @@ description: 使用 ScribdDock 安装环境、手动登录、下载已获授权�
 
 从当前项目、用户给出的路径或此前已确认的 checkout 定位仓库，确认 `package.json` 的包名为 `scribddock`。没有 checkout 且用户要求安装时，clone `https://github.com/hunknownz/ScribdDock.git` 到不冲突的目录；不覆盖已有目录。不要把技能安装目录当作项目目录，也不要硬编码原作者机器路径。
 
-先读该 checkout 的 `AGENTS.md`、`README.md`；涉及导出效果或平台支持时再读 `docs/PDF_EXPORT.md`、`docs/PARITY_AUDIT.md` 或 `docs/WINDOWS.md`。命令和兼容版本以实际 checkout 为准。
+先读该 checkout 的 `AGENTS.md`、`README.md`；需要安装排障、profile 配置或高级命令时读 `docs/USAGE.md`，涉及导出效果或平台支持时再读 `docs/PDF_EXPORT.md`、`docs/PARITY_AUDIT.md` 或 `docs/WINDOWS.md`。命令和兼容版本以实际 checkout 为准。
 
 运行 `pnpm dev sources --json` 查看当前能力，`pnpm dev inspect "<url>"` 仅识别链接，不联网、不证明权限。当前只有 Scribd 实现下载；SlideShare、Everand、Fable 是规划中的来源，明确拒绝尚未实现的操作。用户要求调研或开发时可说明缺口，不伪装成已经能下载。
 

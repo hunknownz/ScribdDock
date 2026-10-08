@@ -5,7 +5,7 @@
 | 现象 | 有依据的检查和处理 |
 | --- | --- |
 | `Failed to spawn: scribd-downloader` | 这是原 Python 命令入口。定位 TS checkout 后用其 `pnpm dev --help`；不要反复安装同名 Python 包。 |
-| Camoufox 内核缺失或不兼容 | 使用该 checkout 的 `pnpm browser:install`，由锁定官方 SDK 选择兼容内核。不硬编码可执行文件或混用 Python SDK 缓存。安装器遇 API 限流时按 README 处理，不反复强制下载。 |
+| Camoufox 内核缺失或不兼容 | 使用该 checkout 的 `pnpm browser:install`，由锁定官方 SDK 选择兼容内核。不硬编码可执行文件或混用 Python SDK 缓存。安装器遇 API 限流时按 checkout 的 `docs/USAGE.md` 处理，不反复强制下载。 |
 | 浏览器 UI 乱码且没到登录页 | 查启动/导航错误和当前实现是否使用宿主 OS、`en-US` locale；当前适配器已经配置这些参数。不能仅凭截图断言是字体或 profile 损坏；先保留 profile，用已有浏览器测试或独立临时 profile 复现启动，不直接重置用户会话。 |
 | 已按 Enter，但再次提示登录 | Enter 只表示保存会话。检查下载是否误用了 `--guest`、是否仍使用同一个 `SCRIBDDOCK_PROFILE_DIR`，再在 Camoufox 中人工登录。没有账号状态证据时报告“会话已保存，登录状态尚未验证”。 |
 | profile 占用或权限错误 | 确认同一 profile 没有另一个活动会话；只关闭属于本次操作的会话。POSIX 是 `0700`，Windows 继承 NTFS ACL。明确重置请求才先备份目录；不删除锁文件来强行并发。 |
