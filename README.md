@@ -10,6 +10,8 @@
 
 > 帮我安装 https://github.com/hunknownz/ScribdDock
 
+安装时一并安装仓库附带的 [`scribddock` skill](skills/scribddock/SKILL.md)，用于登录、下载和排障。
+
 手动安装需先准备 Node.js 24 和 Git：
 
 ```bash
@@ -20,7 +22,17 @@ pnpm install --frozen-lockfile
 pnpm browser:install
 ```
 
+skill 的手动安装方法见[使用说明](docs/USAGE.md#ai-agent-skill)。
+
 ## 使用
+
+通过 skill 下载，直接对 Codex 说：
+
+> 用 $scribddock 下载 https://www.scribd.com/document/990798737/AAGnet，保存到 Downloads 目录。
+
+需要登录时，按 Agent 提示在浏览器中完成登录，再告诉它“已登录”。
+
+也可以使用命令行。
 
 先登录：
 
